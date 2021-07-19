@@ -1,0 +1,14 @@
+[workspace]
+members = [
+	"game_sdk",
+	"player",
+	"playground"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+debug = true

@@ -1,5 +1,5 @@
 [package]
-name = "playground"
+name = "client"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,3 +7,6 @@ edition = "2018"
 
 [dependencies]
 game_sdk = { path = "../game_sdk"}
+argparse = "0.2.2"
+xml-rs = "0.8"
+player = { path = "../player"}

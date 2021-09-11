@@ -149,11 +149,11 @@ impl XmlNode {
             return;
         }
         let mut al = ActionList::default();
-        gamerules::get_legal_actions(&state, &mut al);
+        gamerules::get_legal_actions(state, &mut al);
         for i in 0..al.size {
             let mut clone = state.clone();
             gamerules::do_action(&mut clone, al[i]);
-            if clone.board[state.get_current_color()] == new_board[state.get_current_color()] {
+            if clone.board == new_board {
                 gamerules::do_action(state, al[i]);
                 return;
             }

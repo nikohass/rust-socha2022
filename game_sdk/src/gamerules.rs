@@ -28,53 +28,43 @@ pub fn game_result(state: &GameState) -> i16 {
 }
 
 pub fn do_action(state: &mut GameState, action: Action) {
-    if !state.check_integrity() {
+    /*if !state.check_integrity() {
         panic!("Integrity check failed.");
-    }
+    }*/
     let color = state.get_current_color();
-    let other_color = color ^ 1;
+    let other_color = color ^ 0b1;
     let to_bit = 1 << action.to;
     let from_bit = 1 << action.from;
-    let mut m = to_bit | from_bit;
-    let mut reached_finish_line = false;
-    if action.piece as usize != Piece::Seal as usize && to_bit & FINISH_LINES[color] > 0 {
-        //println!("A piece reached the finish line.");
-        reached_finish_line = true;
-        m ^= to_bit;
-        state.ambers[color] += 1;
-    }
+    let changed_fields = to_bit | from_bit;
     if to_bit & state.occupied[other_color] > 0 {
-        //println!("A piece captured a piece.");
+        if changed_fields & state.stacked > 0 {
+            state.ambers[color] += 1;
+            state.stacked &= !changed_fields;
+            state.occupied[color] &= !changed_fields;
+            state.board[color][action.piece as usize] ^= from_bit;
+        } else {
+            state.stacked |= to_bit;
+            state.occupied[color] ^= changed_fields;
+            state.board[color][action.piece as usize] ^= changed_fields;
+        }
         let mask = !to_bit;
         state.occupied[other_color] &= mask;
         for piece in 0..4 {
             state.board[other_color][piece] &= mask;
         }
-        if state.stacked & to_bit > 0 {
-            //println!("The captured piece was a stack.");
-            m ^= to_bit;
-            //state.stacked ^= to_bit;
-            state.stacked &= !(to_bit | from_bit);
-            state.ambers[color] += 1;
-        } else if state.stacked & from_bit > 0 {
-            //println!("The capturing piece was a stack.");
-            m ^= to_bit;
-            //state.stacked ^= from_bit;
-            state.stacked &= !(to_bit | from_bit);
-            state.ambers[color] += 1;
-        } else {
-            //println!("None of the pieces was on a stack.");
-            state.stacked ^= to_bit;
+    } else {
+        state.occupied[color] ^= changed_fields;
+        state.board[color][action.piece as usize] ^= changed_fields;
+        if state.stacked & from_bit > 0 {
+            state.stacked ^= from_bit | to_bit;
         }
     }
-    if reached_finish_line {
-        state.stacked &= !(to_bit | from_bit);
+    if action.piece as usize != Piece::Seal as usize && to_bit & FINISH_LINES[color] > 0 {
+        let mask = !to_bit;
+        state.board[color][action.piece as usize] &= mask;
+        state.occupied[color] &= mask;
+        state.ambers[color] += 1;
     }
-    if state.stacked & from_bit > 0 {
-        state.stacked ^= from_bit | to_bit;
-    }
-    state.occupied[color] ^= m;
-    state.board[color][action.piece as usize] ^= m;
     state.ply += 1;
 }
 

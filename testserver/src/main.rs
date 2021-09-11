@@ -39,18 +39,15 @@ impl Display for TestResult {
 impl TestResult {
     pub fn add_game_result(&mut self, result: i16) {
         self.games_played += 1;
-        if result == 0 {
-            self.draw += 1;
-        } else if result > 0 {
-            self.one += 1;
-        } else {
-            self.two += 1;
-        }
+        match result {
+            0 => self.draw += 1,
+            r if r > 0 => self.one += 1,
+            _ => self.two += 1,
+        };
     }
 }
 
 pub struct ClientInstance {
-    path: String,
     stdin: ChildStdin,
     stdout: ChildStdout,
 }
@@ -65,7 +62,6 @@ impl ClientInstance {
             .spawn()
             .unwrap_or_else(|_| panic!("Can't start the client: {}", path));
         Self {
-            path,
             stdin: process.stdin.take().unwrap(),
             stdout: process.stdout.take().unwrap(),
         }
@@ -127,11 +123,7 @@ pub fn run_test(
             } else {
                 instance_two.on_move_request(&state)
             };
-            //println!("{}", state);
-            //println!("{}", action);
             gamerules::do_action(&mut state, action);
-            //println!("{}", state);
-            //println!("==================================");
         }
         let mut game_result = gamerules::game_result(&state);
         if first_player == BLUE {

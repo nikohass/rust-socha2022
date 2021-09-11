@@ -1,6 +1,6 @@
 use super::piece::{Piece, PIECES};
 use std::fmt::{Display, Formatter, Result};
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Action {

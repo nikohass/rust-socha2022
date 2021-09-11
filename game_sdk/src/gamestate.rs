@@ -96,7 +96,7 @@ impl GameState {
 
     pub fn check_integrity(&self) -> bool {
         let mut occupied: [u64; 2] = [0; 2];
-        for color in 0..2 {
+        for color in COLORS {
             for piece_type in 0..4 {
                 occupied[color] |= self.board[color][piece_type];
             }
@@ -167,11 +167,11 @@ impl Display for GameState {
             for x in 0..8 {
                 let bit = 1 << (x + y * 8);
                 let mut is_empty = true;
-                for color in COLORS.iter() {
-                    for piece in PIECES.iter() {
-                        if self.board[*color][*piece as usize] & bit != 0 {
+                for color in COLORS {
+                    for piece in PIECES {
+                        if self.board[color][piece as usize] & bit != 0 {
                             let stacked = if self.stacked & bit > 0 { '+' } else { ' ' };
-                            string.push_str(&format!(" {}{} ", piece.to_char(*color), stacked));
+                            string.push_str(&format!(" {}{} ", piece.to_char(color), stacked));
                             is_empty = false;
                             break;
                         }

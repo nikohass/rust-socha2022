@@ -1,4 +1,4 @@
-use super::piece::Piece;
+use super::piece::{Piece, PIECES};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
@@ -20,6 +20,20 @@ impl Action {
             from_x, from_y, to_x, to_y
         );
         format!("  <data class=\"move\">\n    {}  </data>", xml_move)
+    }
+
+    pub fn serialize(&self) -> String {
+        let value = self.from as u64 | ((self.to as u64) << 8) | ((self.piece as u64) << 16);
+        value.to_string()
+    }
+
+    pub fn deserialize(string: String) -> Self {
+        let value = string.parse::<u64>().unwrap();
+        Action {
+            from: value as u8,
+            to: (value >> 8) as u8,
+            piece: PIECES[value as usize >> 16],
+        }
     }
 }
 

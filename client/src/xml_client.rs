@@ -55,8 +55,8 @@ impl XmlClient {
                         "memento" => {
                             println!("Received memento.");
                             node.as_memento(&mut self.state);
-                            //let mut al = ActionList::default();
-                            //gamerules::get_legal_actions(&self.state, &mut al);
+                            println!("{}", self.state.to_fen());
+                            println!("{}", self.state);
                         }
                         "welcomeMessage" => {
                             println!("Received welcome message.");
@@ -64,9 +64,8 @@ impl XmlClient {
                         "moveRequest" => {
                             println!("Received move request.");
                             let action = self.player.on_move_request(&self.state);
-                            println!("{:?}", action);
+                            println!("Sending move: {}", action);
                             let xml_move = action.to_xml();
-                            println!("{}", xml_move);
                             Self::write_to(
                                 stream,
                                 &format!(
@@ -75,11 +74,9 @@ impl XmlClient {
                                     xml_move
                                 ),
                             );
-                            //self.handle_move_request(stream);
                         }
                         "result" => {
                             println!("Received result.");
-                            //self.handle_result(node);
                             return;
                         }
                         s => {

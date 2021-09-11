@@ -1,10 +1,13 @@
+use super::bitboard::bitboard_to_string;
 use super::piece::{Piece, PIECES};
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use std::fmt::{Display, Formatter, Result};
 
 pub const RED: usize = 0;
 pub const BLUE: usize = 1;
 pub const COLORS: [usize; 2] = [RED, BLUE];
 
+#[derive(Clone)]
 pub struct GameState {
     pub ply: u8,
     pub board: [[u64; 4]; 2],
@@ -24,6 +27,29 @@ impl GameState {
         }
     }
 
+    pub fn random() -> Self {
+        let mut rng = SmallRng::from_entropy();
+        let mut state = GameState::empty();
+        let mut pieces_left = [2, 2, 2, 2];
+        for y in 0..8 {
+            loop {
+                let random_piece_type = rng.next_u64() as usize % 4;
+                if pieces_left[random_piece_type] == 0 {
+                    continue;
+                }
+                pieces_left[random_piece_type] -= 1;
+                let red_position = 1 << (y * 8);
+                state.board[RED][random_piece_type] |= red_position;
+                state.occupied[RED] |= red_position;
+                let blue_position = 1 << ((7 - y) * 8 + 7);
+                state.board[BLUE][random_piece_type] |= blue_position;
+                state.occupied[BLUE] |= blue_position;
+                break;
+            }
+        }
+        state
+    }
+
     pub fn get_current_color(&self) -> usize {
         (self.ply & 0b1) as usize
     }
@@ -35,7 +61,7 @@ impl GameState {
             board: [[0u64; 4]; 2],
             occupied: [0u64; 2],
             stacked: 0u64,
-            ambers: [0u8; 2]
+            ambers: [0u8; 2],
         };
         for color in COLORS.iter() {
             for piece in PIECES.iter() {
@@ -67,6 +93,46 @@ impl GameState {
             self.ambers[0] | self.ambers[1] << 4,
         )
     }
+
+    pub fn check_integrity(&self) -> bool {
+        let mut occupied: [u64; 2] = [0; 2];
+        for color in 0..2 {
+            for piece_type in 0..4 {
+                occupied[color] |= self.board[color][piece_type];
+            }
+            if occupied[color] != self.occupied[color] {
+                println!(
+                    "Something went wrong with the occupancy map for color {}",
+                    color
+                );
+                println!(
+                    "It should be:\n{}\nNot\n{}",
+                    bitboard_to_string(occupied[color]),
+                    bitboard_to_string(self.occupied[color])
+                );
+                return false;
+            }
+        }
+        if occupied[0] & occupied[1] > 0 {
+            println!("There is a field which is owned by both colors.");
+            println!(
+                "RED\n{}\nBLUE\n{}",
+                bitboard_to_string(self.occupied[RED]),
+                bitboard_to_string(self.occupied[BLUE])
+            );
+            return false;
+        }
+        if self.stacked & (occupied[0] | occupied[1]) != self.stacked {
+            println!("A field that contains a stack must be occupied by a piece.");
+            println!(
+                "Stacked:\n{}\nOccupied:\n{}",
+                bitboard_to_string(self.stacked),
+                bitboard_to_string(occupied[0] | occupied[1])
+            );
+            return false;
+        }
+        true
+    }
 }
 
 impl Display for GameState {
@@ -78,12 +144,14 @@ impl Display for GameState {
         }
         string.push_str("╗\n");
         let info = &format!(
-            "║ {} Turn: {}",
+            "║ {} Turn: {} {}:{}",
             match self.get_current_color() {
                 0 => "🟥",
                 _ => "🟦",
             },
             self.ply,
+            self.ambers[0],
+            self.ambers[1],
         );
         string.push_str(info);
         for _ in info.len()..36 {
@@ -102,7 +170,8 @@ impl Display for GameState {
                 for color in COLORS.iter() {
                     for piece in PIECES.iter() {
                         if self.board[*color][*piece as usize] & bit != 0 {
-                            string.push_str(&format!(" {}  ", piece.to_char(*color)));
+                            let stacked = if self.stacked & bit > 0 { '+' } else { ' ' };
+                            string.push_str(&format!(" {}{} ", piece.to_char(*color), stacked));
                             is_empty = false;
                             break;
                         }

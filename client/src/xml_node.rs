@@ -1,3 +1,5 @@
+use game_sdk::action::ActionList;
+use game_sdk::gamerules;
 use game_sdk::gamestate::GameState;
 use game_sdk::piece::Piece;
 use std::collections::{HashMap, VecDeque};
@@ -87,11 +89,11 @@ impl XmlNode {
         self.get_child("state").expect(err).update_state(state);
     }
 
-    pub fn update_state(&self, new_state: &mut GameState) {
+    pub fn update_state(&self, state: &mut GameState) {
         //let mut new_state = GameState::empty();
-        new_state.board = [[0u64; 4]; 2];
-        new_state.occupied = [0u64; 2];
-        new_state.ply = self
+        let mut new_board = [[0u64; 4]; 2];
+        let mut new_occupied = [0u64; 2];
+        let new_ply = self
             .get_attribute("turn")
             .expect("Error while reading turn")
             .parse::<u8>()
@@ -138,11 +140,24 @@ impl XmlNode {
                 _ => 1,
             };
             let bit = 1 << (x + y * 8);
-            new_state.board[color][piece as usize] |= bit;
-            new_state.occupied[color] |= bit;
-            //println!("{} {} {} {}", x, y, pt, color);
+            new_board[color][piece as usize] |= bit;
+            new_occupied[color] |= bit;
         }
-        println!("{}", new_state);
+        if new_ply == 0 {
+            state.board = new_board;
+            state.occupied = new_occupied;
+            return;
+        }
+        let mut al = ActionList::default();
+        gamerules::get_legal_actions(&state, &mut al);
+        for i in 0..al.size {
+            let mut clone = state.clone();
+            gamerules::do_action(&mut clone, al[i]);
+            if clone.board[state.get_current_color()] == new_board[state.get_current_color()] {
+                gamerules::do_action(state, al[i]);
+                return;
+            }
+        }
     }
 
     pub fn get_children(&self) -> &Vec<XmlNode> {

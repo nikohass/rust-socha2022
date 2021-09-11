@@ -1,4 +1,4 @@
-use super::action::{Action, ActionList};
+use super::action::*;
 use super::bitboard::*;
 use super::gamestate::GameState;
 use super::piece::Piece;
@@ -13,7 +13,7 @@ pub const COCKLE_PATTERN: [u64; 128] = [512, 1024, 2048, 4096, 8192, 16384, 3276
 pub const GULL_PATTERN: [u64; 64] = [258, 517, 1034, 2068, 4136, 8272, 16544, 32832, 66049, 132354, 264708, 529416, 1058832, 2117664, 4235328, 8405120, 16908544, 33882624, 67765248, 135530496, 271060992, 542121984, 1084243968, 2151710720, 4328587264, 8673951744, 17347903488, 34695806976, 69391613952, 138783227904, 277566455808, 550837944320, 1108118339584, 2220531646464, 4441063292928, 8882126585856, 17764253171712, 35528506343424, 71057012686848, 141014513745920, 283678294933504, 568456101494784, 1136912202989568, 2273824405979136, 4547648811958272, 9095297623916544, 18190595247833088, 36099715518955520, 72621643502977024, 145524761982664704, 291049523965329408, 582099047930658816, 1164198095861317632, 2328396191722635264, 4656792383445270528, 9241527172852613120, 144396663052566528, 360850920143060992, 721701840286121984, 1443403680572243968, 2886807361144487936, 5773614722288975872, 11547229444577951744, 4647714815446351872];
 
 pub fn is_game_over(state: &GameState) -> bool {
-    state.ply > 60 || ((state.ambers[0] > 1 || state.ambers[1] > 1) && state.ply & 0b1 == 0)
+    state.ply >= 59 || ((state.ambers[0] > 1 || state.ambers[1] > 1) && state.ply & 0b1 == 0)
 }
 
 pub fn game_result(state: &GameState) -> i16 {
@@ -32,40 +32,97 @@ pub fn do_action(state: &mut GameState, action: Action) {
         panic!("Integrity check failed.");
     }*/
     let color = state.get_current_color();
+    let mut undo_info = UndoInfo::default();
     let other_color = color ^ 0b1;
-    let to_bit = 1 << action.to;
-    let from_bit = 1 << action.from;
+    let to_bit = 1 << action.to();
+    let from_bit = 1 << action.from();
     let changed_fields = to_bit | from_bit;
+    let piece = action.piece() as usize;
     if to_bit & state.occupied[other_color] > 0 {
-        if changed_fields & state.stacked > 0 {
+        let changed_fields_that_are_stacked = changed_fields & state.stacked;
+        let capture_info = if changed_fields_that_are_stacked.count_ones() == 2 {
+            BOTH_PIECES_WERE_STACKED
+        } else if changed_fields_that_are_stacked & to_bit > 0 {
+            CAPTURED_PIECE_WAS_STACKED
+        } else if changed_fields_that_are_stacked & from_bit > 0 {
+            MOVED_PIECE_WAS_STACKED
+        } else {
+            0
+        };
+        if changed_fields_that_are_stacked > 0 {
             state.ambers[color] += 1;
             state.stacked &= !changed_fields;
             state.occupied[color] &= !changed_fields;
-            state.board[color][action.piece as usize] ^= from_bit;
+            state.board[color][piece] ^= from_bit;
         } else {
             state.stacked |= to_bit;
             state.occupied[color] ^= changed_fields;
-            state.board[color][action.piece as usize] ^= changed_fields;
+            state.board[color][piece] ^= changed_fields;
         }
         let mask = !to_bit;
         state.occupied[other_color] &= mask;
         for piece in 0..4 {
-            state.board[other_color][piece] &= mask;
+            if state.board[other_color][piece] & to_bit > 0 {
+                state.board[other_color][piece] &= mask;
+                undo_info.set_capture(piece as u8, capture_info);
+                break;
+            }
         }
     } else {
         state.occupied[color] ^= changed_fields;
-        state.board[color][action.piece as usize] ^= changed_fields;
+        state.board[color][piece] ^= changed_fields;
         if state.stacked & from_bit > 0 {
             state.stacked ^= from_bit | to_bit;
         }
     }
-    if action.piece as usize != Piece::Seal as usize && to_bit & FINISH_LINES[color] > 0 {
+    if piece as usize != Piece::Seal as usize && to_bit & FINISH_LINES[color] > 0 {
         let mask = !to_bit;
-        state.board[color][action.piece as usize] &= mask;
+        state.board[color][piece] &= mask;
         state.occupied[color] &= mask;
         state.ambers[color] += 1;
+        state.stacked &= mask;
     }
+    state.undo[state.ply as usize] = undo_info;
     state.ply += 1;
+}
+
+pub fn undo_action(state: &mut GameState, action: Action) {
+    state.ply -= 1;
+    let color = state.get_current_color();
+    let other_color = color ^ 1;
+    let undo_info = state.undo[state.ply as usize];
+    let to_bit = 1 << action.to();
+    let from_bit = 1 << action.from();
+    let piece = action.piece() as usize;
+    let changed_fields = to_bit | from_bit;
+    state.occupied[color] &= !to_bit;
+    state.occupied[color] |= from_bit;
+    state.board[color][piece] &= !to_bit;
+    state.board[color][piece] |= from_bit;
+
+    if let Some((piece, capture_info)) = undo_info.get_capture() {
+        if capture_info & BOTH_PIECES_WERE_STACKED == BOTH_PIECES_WERE_STACKED {
+            state.ambers[color] -= 1;
+            state.stacked |= changed_fields;
+        } else if capture_info & CAPTURED_PIECE_WAS_STACKED > 0 {
+            state.ambers[color] -= 1;
+            state.stacked |= to_bit;
+            state.stacked &= !from_bit;
+        } else if capture_info & MOVED_PIECE_WAS_STACKED > 0 {
+            state.ambers[color] -= 1;
+            state.stacked |= from_bit;
+            state.stacked &= !to_bit;
+        } else {
+            state.stacked &= !changed_fields;
+        }
+        state.board[other_color][piece as usize] |= to_bit;
+        state.occupied[other_color] |= to_bit;
+    } else if state.stacked & to_bit > 0 {
+        state.stacked ^= changed_fields;
+    }
+    if piece != Piece::Seal as usize && to_bit & FINISH_LINES[color] > 0 {
+        state.ambers[color] -= 1;
+    }
 }
 
 pub fn get_legal_actions(state: &GameState, al: &mut ActionList) {
@@ -86,11 +143,7 @@ pub fn append_cockle_actions(state: &GameState, al: &mut ActionList, color: usiz
         while destinations > 0 {
             let to = destinations.trailing_zeros();
             destinations ^= 1 << to;
-            al.push(Action {
-                from: from as u8,
-                to: to as u8,
-                piece: Piece::Cockle,
-            });
+            al.push(Action::new(from as u16, to as u16, Piece::Cockle));
         }
     }
 }
@@ -104,11 +157,7 @@ pub fn append_gull_actions(state: &GameState, al: &mut ActionList, color: usize)
         while destinations > 0 {
             let to = destinations.trailing_zeros();
             destinations ^= 1 << to;
-            al.push(Action {
-                to: to as u8,
-                from: from as u8,
-                piece: Piece::Gull,
-            });
+            al.push(Action::new(from as u16, to as u16, Piece::Gull));
         }
     }
 }
@@ -123,11 +172,7 @@ pub fn append_starfish_actions(state: &GameState, al: &mut ActionList, color: us
         while destinations > 0 {
             let to = destinations.trailing_zeros();
             destinations ^= 1 << to;
-            al.push(Action {
-                from: from as u8,
-                to: to as u8,
-                piece: Piece::Starfish,
-            });
+            al.push(Action::new(from as u16, to as u16, Piece::Starfish));
         }
     }
 }
@@ -141,11 +186,7 @@ pub fn append_seal_actions(state: &GameState, al: &mut ActionList, color: usize)
         while destinations > 0 {
             let to = destinations.trailing_zeros();
             destinations ^= 1 << to;
-            al.push(Action {
-                from: from as u8,
-                to: to as u8,
-                piece: Piece::Seal,
-            });
+            al.push(Action::new(from as u16, to as u16, Piece::Seal));
         }
     }
 }

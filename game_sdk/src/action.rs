@@ -1,7 +1,91 @@
-use super::piece::{Piece, PIECES};
+use super::piece::Piece;
 use std::fmt::{Display, Formatter, Result};
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
+// 00000000 00111111 from
+// 00001111 11000000 to
+// 00110000 00000000 piece
+
+#[derive(Copy, Clone, Debug)]
+pub struct Action(u16);
+
+impl Action {
+    pub fn new(from: u16, to: u16, piece: Piece) -> Self {
+        Self(from | to << 6 | (piece as u16) << 12)
+    }
+
+    pub fn from(self) -> u16 {
+        self.0 & 0b111111
+    }
+
+    pub fn to(self) -> u16 {
+        self.0 >> 6 & 0b111111
+    }
+
+    pub fn piece(self) -> u16 {
+        self.0 >> 12
+    }
+
+    pub fn serialize(self) -> String {
+        self.0.to_string()
+    }
+
+    pub fn deserialize(string: String) -> Self {
+        Action(string.parse::<u16>().unwrap())
+    }
+
+    pub fn to_xml(&self) -> String {
+        let from_y = self.from() / 8;
+        let from_x = self.from() - from_y * 8;
+        let to_y = self.to() / 8;
+        let to_x = self.to() - to_y * 8;
+        let xml_move = format!(
+            "<from x=\"{}\" y=\"{}\"/>\n    <to x=\"{}\" y=\"{}\"/>\n",
+            from_x, from_y, to_x, to_y
+        );
+        format!("  <data class=\"move\">\n    {}  </data>", xml_move)
+    }
+}
+
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{} {}", self.from(), self.to(),)
+    }
+}
+
+// 00000001 capture
+// 00000110 captured piece
+// 00001000 captured piece was stacked
+// 00010000 moved piece was stacked
+
+pub const CAPTURED_PIECE_WAS_STACKED: u8 = 0b1;
+pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
+pub const BOTH_PIECES_WERE_STACKED: u8 = CAPTURED_PIECE_WAS_STACKED | MOVED_PIECE_WAS_STACKED;
+
+#[derive(Copy, Clone, Debug)]
+pub struct UndoInfo(u8);
+
+impl UndoInfo {
+    pub fn set_capture(&mut self, piece: u8, capture_info: u8) {
+        self.0 |= 0b1 | (piece as u8) << 1 | capture_info << 3;
+    }
+
+    pub fn get_capture(self) -> Option<(u8, u8)> {
+        if self.0 & 0b1 > 0 {
+            Some(((self.0 >> 1) & 0b11, (self.0 >> 3) & 0b11))
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for UndoInfo {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
+/*
 #[derive(Copy, Clone, Debug)]
 pub struct Action {
     pub from: u8,
@@ -47,7 +131,7 @@ impl Display for Action {
             self.to
         )
     }
-}
+}*/
 
 pub const MAX_ACTIONS: usize = 300;
 
@@ -105,6 +189,42 @@ impl Index<usize> for ActionList {
                 self.size,
                 self.actions[0..self.size].to_vec()
             );
+        }
+    }
+}
+
+pub struct ActionListStack {
+    pub action_lists: Vec<ActionList>,
+}
+
+impl ActionListStack {
+    pub fn with_size(size: usize) -> Self {
+        Self {
+            action_lists: vec![ActionList::default(); size],
+        }
+    }
+}
+
+impl Index<usize> for ActionListStack {
+    type Output = ActionList;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        if index < self.action_lists.len() {
+            &self.action_lists[index]
+        } else {
+            panic!("Can not extend ActionListStack in non mutable index");
+        }
+    }
+}
+
+impl IndexMut<usize> for ActionListStack {
+    fn index_mut(&mut self, index: usize) -> &mut ActionList {
+        if index < self.action_lists.len() {
+            &mut self.action_lists[index]
+        } else {
+            self.action_lists
+                .append(vec![ActionList::default(); index + 1 - self.action_lists.len()].as_mut());
+            self.index_mut(index)
         }
     }
 }

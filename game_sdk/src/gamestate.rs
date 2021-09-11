@@ -1,3 +1,4 @@
+use super::action::UndoInfo;
 use super::bitboard::bitboard_to_string;
 use super::piece::{Piece, PIECES};
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
@@ -14,6 +15,7 @@ pub struct GameState {
     pub occupied: [u64; 2],
     pub stacked: u64,
     pub ambers: [u8; 2],
+    pub undo: [UndoInfo; 64],
 }
 
 impl GameState {
@@ -24,6 +26,7 @@ impl GameState {
             occupied: [0u64; 2],
             stacked: 0u64,
             ambers: [0u8; 2],
+            undo: [UndoInfo::default(); 64],
         }
     }
 
@@ -62,6 +65,7 @@ impl GameState {
             occupied: [0u64; 2],
             stacked: 0u64,
             ambers: [0u8; 2],
+            undo: [UndoInfo::default(); 64],
         };
         for color in COLORS.iter() {
             for piece in PIECES.iter() {

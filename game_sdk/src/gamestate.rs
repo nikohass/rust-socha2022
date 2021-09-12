@@ -1,6 +1,6 @@
 use super::action::UndoInfo;
 use super::bitboard::bitboard_to_string;
-use super::piece::{Piece, PIECES};
+use super::piece;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use std::fmt::{Display, Formatter, Result};
 
@@ -68,7 +68,7 @@ impl GameState {
             undo: [UndoInfo::default(); 64],
         };
         for color in COLORS.iter() {
-            for piece in PIECES.iter() {
+            for piece in piece::PIECES.iter() {
                 let bitboard = entries.remove(0).parse::<u64>().unwrap();
                 state.board[*color][*piece as usize] = bitboard;
                 state.occupied[*color] |= bitboard;
@@ -85,14 +85,14 @@ impl GameState {
         format!(
             "{} {} {} {} {} {} {} {} {} {} {}",
             self.ply,
-            self.board[RED][Piece::Cockle as usize],
-            self.board[RED][Piece::Gull as usize],
-            self.board[RED][Piece::Starfish as usize],
-            self.board[RED][Piece::Seal as usize],
-            self.board[BLUE][Piece::Cockle as usize],
-            self.board[BLUE][Piece::Gull as usize],
-            self.board[BLUE][Piece::Starfish as usize],
-            self.board[BLUE][Piece::Seal as usize],
+            self.board[RED][piece::COCKLE as usize],
+            self.board[RED][piece::GULL as usize],
+            self.board[RED][piece::STARFISH as usize],
+            self.board[RED][piece::SEAL as usize],
+            self.board[BLUE][piece::COCKLE as usize],
+            self.board[BLUE][piece::GULL as usize],
+            self.board[BLUE][piece::STARFISH as usize],
+            self.board[BLUE][piece::SEAL as usize],
             self.stacked,
             self.ambers[0] | self.ambers[1] << 4,
         )
@@ -172,10 +172,14 @@ impl Display for GameState {
                 let bit = 1 << (x + y * 8);
                 let mut is_empty = true;
                 for color in COLORS {
-                    for piece in PIECES {
+                    for piece in piece::PIECES {
                         if self.board[color][piece as usize] & bit != 0 {
                             let stacked = if self.stacked & bit > 0 { '+' } else { ' ' };
-                            string.push_str(&format!(" {}{} ", piece.to_char(color), stacked));
+                            string.push_str(&format!(
+                                " {}{} ",
+                                piece::to_char(piece, color),
+                                stacked
+                            ));
                             is_empty = false;
                             break;
                         }

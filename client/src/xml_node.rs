@@ -1,7 +1,7 @@
 use game_sdk::action::ActionList;
 use game_sdk::gamerules;
 use game_sdk::gamestate::GameState;
-use game_sdk::piece::Piece;
+use game_sdk::piece;
 use std::collections::{HashMap, VecDeque};
 use std::io::BufReader;
 use std::net::TcpStream;
@@ -126,10 +126,10 @@ impl XmlNode {
                 .expect("Error while reading piece type")
                 .as_str()
             {
-                "Herzmuschel" => Piece::Cockle,
-                "Moewe" => Piece::Gull,
-                "Seestern" => Piece::Starfish,
-                _ => Piece::Seal,
+                "Herzmuschel" => piece::COCKLE,
+                "Moewe" => piece::GULL,
+                "Seestern" => piece::STARFISH,
+                _ => piece::SEAL,
             };
             let color = match p
                 .get_attribute("team")

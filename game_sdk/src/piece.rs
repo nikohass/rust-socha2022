@@ -1,17 +1,10 @@
-pub const PIECES: [Piece; 4] = [Piece::Cockle, Piece::Gull, Piece::Starfish, Piece::Seal];
+pub const COCKLE: u8 = 0;
+pub const GULL: u8 = 1;
+pub const STARFISH: u8 = 2;
+pub const SEAL: u8 = 3;
+pub const PIECES: [u8; 4] = [COCKLE, GULL, STARFISH, SEAL];
 
-#[repr(u8)]
-#[derive(Copy, Clone, Debug)]
-pub enum Piece {
-    Cockle = 0,
-    Gull = 1,
-    Starfish = 2,
-    Seal = 3,
-}
-
-impl Piece {
-    pub fn to_char(&self, color: usize) -> char {
-        let chars: [[char; 4]; 2] = [['C', 'G', 'F', 'S'], ['c', 'g', 'f', 's']];
-        chars[color][*self as usize]
-    }
+pub fn to_char(piece: u8, color: usize) -> char {
+    let chars: [[char; 4]; 2] = [['C', 'G', 'F', 'S'], ['c', 'g', 'f', 's']];
+    chars[color][piece as usize]
 }

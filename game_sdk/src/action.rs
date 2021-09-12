@@ -1,4 +1,3 @@
-use super::piece::Piece;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
@@ -10,7 +9,7 @@ use std::ops::{Index, IndexMut};
 pub struct Action(u16);
 
 impl Action {
-    pub fn new(from: u16, to: u16, piece: Piece) -> Self {
+    pub fn new(from: u16, to: u16, piece: u8) -> Self {
         Self(from | to << 6 | (piece as u16) << 12)
     }
 
@@ -45,6 +44,10 @@ impl Action {
         );
         format!("  <data class=\"move\">\n    {}  </data>", xml_move)
     }
+
+    pub fn none() -> Self {
+        Self(0)
+    }
 }
 
 impl Display for Action {
@@ -60,7 +63,6 @@ impl Display for Action {
 
 pub const CAPTURED_PIECE_WAS_STACKED: u8 = 0b1;
 pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
-pub const BOTH_PIECES_WERE_STACKED: u8 = CAPTURED_PIECE_WAS_STACKED | MOVED_PIECE_WAS_STACKED;
 
 #[derive(Copy, Clone, Debug)]
 pub struct UndoInfo(u8);
@@ -77,6 +79,14 @@ impl UndoInfo {
             None
         }
     }
+
+    pub fn set_finish_line_info(&mut self, info: u8) {
+        self.0 |= info << 3;
+    }
+
+    pub fn get_finish_line_info(self) -> u8 {
+        self.0 >> 3 & 0b11
+    }
 }
 
 impl Default for UndoInfo {
@@ -84,54 +94,6 @@ impl Default for UndoInfo {
         Self(0)
     }
 }
-
-/*
-#[derive(Copy, Clone, Debug)]
-pub struct Action {
-    pub from: u8,
-    pub to: u8,
-    pub piece: Piece,
-}
-
-impl Action {
-    pub fn to_xml(&self) -> String {
-        let from_y = self.from / 8;
-        let from_x = self.from - from_y * 8;
-        let to_y = self.to / 8;
-        let to_x = self.to - to_y * 8;
-        let xml_move = format!(
-            "<from x=\"{}\" y=\"{}\"/>\n    <to x=\"{}\" y=\"{}\"/>\n",
-            from_x, from_y, to_x, to_y
-        );
-        format!("  <data class=\"move\">\n    {}  </data>", xml_move)
-    }
-
-    pub fn serialize(&self) -> String {
-        let value = self.from as u64 | ((self.to as u64) << 8) | ((self.piece as u64) << 16);
-        value.to_string()
-    }
-
-    pub fn deserialize(string: String) -> Self {
-        let value = string.parse::<u64>().unwrap();
-        Action {
-            from: value as u8,
-            to: (value >> 8) as u8,
-            piece: PIECES[value as usize >> 16],
-        }
-    }
-}
-
-impl Display for Action {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(
-            f,
-            "Drag {} from {} to {}",
-            self.piece.to_char(0),
-            self.from,
-            self.to
-        )
-    }
-}*/
 
 pub const MAX_ACTIONS: usize = 300;
 

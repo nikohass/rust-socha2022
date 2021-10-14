@@ -64,7 +64,7 @@ impl Display for Action {
 pub const CAPTURED_PIECE_WAS_STACKED: u8 = 0b1;
 pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct UndoInfo(u8);
 
 impl UndoInfo {

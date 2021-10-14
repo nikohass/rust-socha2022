@@ -1,5 +1,6 @@
 use super::action::UndoInfo;
 use super::bitboard::bitboard_to_string;
+use super::hashing::ZOBRIST_KEYS;
 use super::piece;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use std::fmt::{Display, Formatter, Result};
@@ -8,7 +9,7 @@ pub const RED: usize = 0;
 pub const BLUE: usize = 1;
 pub const COLORS: [usize; 2] = [RED, BLUE];
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct GameState {
     pub ply: u8,
     pub board: [[u64; 4]; 2],
@@ -16,6 +17,7 @@ pub struct GameState {
     pub stacked: u64,
     pub ambers: [u8; 2],
     pub undo: [UndoInfo; 64],
+    pub hash: u64,
 }
 
 impl GameState {
@@ -27,6 +29,7 @@ impl GameState {
             stacked: 0u64,
             ambers: [0u8; 2],
             undo: [UndoInfo::default(); 64],
+            hash: 0,
         }
     }
 
@@ -50,7 +53,23 @@ impl GameState {
                 break;
             }
         }
+        state.recalculate_hash();
         state
+    }
+
+    pub fn recalculate_hash(&mut self) {
+        let mut hash: u64 = 0;
+        for color in COLORS {
+            for piece in piece::PIECES {
+                let mut pieces = self.board[color as usize][piece as usize];
+                while pieces > 0 {
+                    let position = pieces.trailing_zeros();
+                    pieces ^= 1 << position;
+                    hash ^= ZOBRIST_KEYS[color as usize][piece as usize][position as usize];
+                }
+            }
+        }
+        self.hash = hash;
     }
 
     pub fn get_current_color(&self) -> usize {
@@ -59,14 +78,8 @@ impl GameState {
 
     pub fn from_fen(fen: &str) -> Self {
         let mut entries: Vec<&str> = fen.split(' ').collect();
-        let mut state = GameState {
-            ply: entries.remove(0).parse::<u8>().unwrap(),
-            board: [[0u64; 4]; 2],
-            occupied: [0u64; 2],
-            stacked: 0u64,
-            ambers: [0u8; 2],
-            undo: [UndoInfo::default(); 64],
-        };
+        let mut state = GameState::empty();
+        state.ply = entries.remove(0).parse::<u8>().unwrap();
         for color in COLORS.iter() {
             for piece in piece::PIECES.iter() {
                 let bitboard = entries.remove(0).parse::<u64>().unwrap();
@@ -78,6 +91,7 @@ impl GameState {
         let ambers = entries.remove(0).parse::<u8>().unwrap();
         state.ambers[0] = ambers & 0b1111;
         state.ambers[1] = ambers >> 4;
+        state.recalculate_hash();
         state
     }
 

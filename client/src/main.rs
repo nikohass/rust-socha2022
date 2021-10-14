@@ -4,7 +4,9 @@ use xml_client::XmlClient;
 mod xml_node;
 use game_sdk::gamestate::GameState;
 use game_sdk::player::Player;
-use player::random::RandomPlayer;
+//use player::random::RandomPlayer as Algorithm;
+use player::minimax::search::Searcher as Algorithm;
+//use player::greedy::GreedyPlayer as Algorithm;
 
 fn run_test(mut player: Box<dyn Player>) {
     loop {
@@ -47,7 +49,7 @@ fn main() {
         parser.parse_args_or_exit();
     }
 
-    let player = Box::new(RandomPlayer::default());
+    let player = Box::new(Algorithm::default());
     if test {
         run_test(player);
     } else {

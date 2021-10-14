@@ -5,3 +5,6 @@ pub mod gamestate;
 pub mod hashing;
 pub mod piece;
 pub mod player;
+
+#[cfg(test)]
+pub mod tests;

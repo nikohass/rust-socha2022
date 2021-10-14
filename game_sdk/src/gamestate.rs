@@ -9,7 +9,7 @@ pub const RED: usize = 0;
 pub const BLUE: usize = 1;
 pub const COLORS: [usize; 2] = [RED, BLUE];
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct GameState {
     pub ply: u8,
     pub board: [[u64; 4]; 2],
@@ -31,6 +31,15 @@ impl GameState {
             undo: [UndoInfo::default(); 64],
             hash: 0,
         }
+    }
+
+    pub fn compare(&self, other: &GameState) -> bool {
+        self.ply == other.ply
+            && self.board[RED] == other.board[RED]
+            && self.board[BLUE] == other.board[BLUE]
+            && self.stacked == other.stacked
+            && self.ambers == other.ambers
+            && self.occupied == other.occupied
     }
 
     pub fn random() -> Self {
@@ -216,5 +225,11 @@ impl Display for GameState {
         }
         string.push('╝');
         write!(f, "{}", string)
+    }
+}
+
+impl PartialEq for GameState {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
     }
 }

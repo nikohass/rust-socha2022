@@ -65,9 +65,17 @@ pub const CAPTURED_PIECE_WAS_STACKED: u8 = 0b1;
 pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct UndoInfo(u8);
+pub struct UndoInfo(u8, u64);
 
 impl UndoInfo {
+    pub fn set_hash(&mut self, hash: u64) {
+        self.1 = hash;
+    }
+
+    pub fn get_hash(&self) -> u64 {
+        self.1
+    }
+
     pub fn set_capture(&mut self, piece: u8, capture_info: u8) {
         self.0 |= 0b1 | (piece as u8) << 1 | capture_info << 3;
     }
@@ -91,7 +99,7 @@ impl UndoInfo {
 
 impl Default for UndoInfo {
     fn default() -> Self {
-        Self(0)
+        Self(0, 0)
     }
 }
 

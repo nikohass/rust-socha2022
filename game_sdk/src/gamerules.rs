@@ -1,6 +1,7 @@
 use super::action::*;
 use super::bitboard::*;
 use super::gamestate::*;
+use super::hashing::ZOBRIST_KEYS;
 use super::piece;
 
 #[rustfmt::skip]
@@ -38,6 +39,7 @@ pub fn game_result(state: &GameState) -> i16 {
 pub fn do_action(state: &mut GameState, action: Action) {
     let color = state.get_current_color();
     let mut undo_info = UndoInfo::default();
+    undo_info.set_hash(state.hash);
     let other_color = color ^ 0b1;
     let to_bit = 1 << action.to();
     let from_bit = 1 << action.from();
@@ -50,11 +52,16 @@ pub fn do_action(state: &mut GameState, action: Action) {
             state.ambers[color] += 1;
             state.stacked &= !changed_fields;
             state.occupied[color] &= !changed_fields;
+            if state.board[color][piece] & from_bit > 0 {
+                state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
+            }
             state.board[color][piece] ^= from_bit;
         } else {
             state.stacked |= to_bit;
             state.occupied[color] ^= changed_fields;
             state.board[color][piece] ^= changed_fields;
+            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
+            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
         }
         let mask = !to_bit;
         state.occupied[other_color] &= mask;
@@ -67,6 +74,9 @@ pub fn do_action(state: &mut GameState, action: Action) {
         }
         for piece in 0..4 {
             if state.board[other_color][piece] & to_bit > 0 {
+                if state.board[other_color][piece] & to_bit > 0 {
+                    state.hash ^= ZOBRIST_KEYS[other_color][piece][action.to() as usize];
+                }
                 state.board[other_color][piece] &= mask;
                 undo_info.set_capture(piece as u8, capture_info);
                 break;
@@ -75,6 +85,8 @@ pub fn do_action(state: &mut GameState, action: Action) {
     } else {
         state.occupied[color] ^= changed_fields;
         state.board[color][piece] ^= changed_fields;
+        state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
+        state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
         if state.stacked & from_bit > 0 {
             state.stacked ^= from_bit | to_bit;
         }
@@ -84,6 +96,9 @@ pub fn do_action(state: &mut GameState, action: Action) {
             undo_info.set_finish_line_info(MOVED_PIECE_WAS_STACKED);
         }
         let mask = !to_bit;
+        if state.board[color][piece] & to_bit > 0 {
+            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
+        }
         state.board[color][piece] &= mask;
         state.occupied[color] &= mask;
         state.ambers[color] += 1;
@@ -128,6 +143,7 @@ pub fn undo_action(state: &mut GameState, action: Action) {
             state.stacked |= from_bit;
         }
     }
+    state.hash = undo_info.get_hash();
 }
 
 pub fn get_legal_actions(state: &GameState, al: &mut ActionList) {

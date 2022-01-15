@@ -18,6 +18,7 @@ pub fn is_game_over(state: &GameState) -> bool {
 }
 
 pub fn game_result(state: &GameState) -> i16 {
+    #[allow(clippy::comparison_chain)]
     if state.ambers[0] == state.ambers[1] {
         for i in 0..8 {
             let red = (FINISH_LINES[RED] >> i & state.occupied[RED]).count_ones();

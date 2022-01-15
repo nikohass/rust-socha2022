@@ -31,6 +31,7 @@ fn main() {
     let mut port = "13050".to_string();
     let mut reservation = "".to_string();
     let mut test = false;
+    let mut time_limit: u64 = 1980;
 
     {
         let mut parser = ArgumentParser::new();
@@ -43,13 +44,19 @@ fn main() {
         parser
             .refer(&mut reservation)
             .add_option(&["-r", "--reservation"], Store, "Reservation");
+        parser.refer(&mut test).add_option(
+            &["-T", "--test"],
+            Store,
+            "Run the client in test mode.",
+        );
         parser
-            .refer(&mut test)
-            .add_option(&["-t", "--test"], Store, "Test");
+            .refer(&mut time_limit)
+            .add_option(&["-t", "--time"], Store, "Search time limit");
         parser.parse_args_or_exit();
     }
 
-    let player = Box::new(Algorithm::default());
+    let mut player = Box::new(Algorithm::default());
+    player.set_time_limit(time_limit);
     if test {
         run_test(player);
     } else {

@@ -56,6 +56,7 @@ impl ClientInstance {
     pub fn new(path: String) -> Self {
         let mut process = Command::new(path.clone())
             .args(&["--test", "true"])
+            //.args(&["--time", "200"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -83,7 +84,7 @@ impl Player for ClientInstance {
             }
             if !line.is_empty() {
                 line.pop();
-                println!("info: {}", line);
+                //println!("info: {}", line);
             }
             line.truncate(0);
         }
@@ -143,8 +144,8 @@ pub fn run_test(
 
 fn main() {
     let path_one = String::from("target/release/client.exe");
-    let path_two = String::from("target/release/client.exe");
-    let threads: usize = 10;
+    let path_two = String::from("clients/cb.exe");
+    let threads: usize = 6;
 
     let test_result = Arc::new(Mutex::new(TestResult::default()));
     let mut handles: Vec<JoinHandle<()>> = Vec::with_capacity(8);

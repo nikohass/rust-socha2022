@@ -6,5 +6,5 @@ pub trait Player {
 
     fn reset(&mut self) {}
 
-    //fn set_time_limit(&mut self, time: u128) {}
+    fn set_time_limit(&mut self, _: u64) {}
 }

@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 // 00001111 11000000 to
 // 00110000 00000000 piece
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Action(u16);
 
 impl Action {
@@ -121,6 +121,10 @@ impl ActionList {
     #[inline(always)]
     pub fn clear(&mut self) {
         self.size = 0;
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.actions.swap(a, b);
     }
 }
 

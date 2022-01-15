@@ -1,6 +1,6 @@
-use super::search::MATE_VALUE;
-use game_sdk::bitboard::bitboard_to_string;
-use game_sdk::gamerules::{self, *};
+//use super::search::MATE_VALUE;
+//use game_sdk::bitboard::bitboard_to_string;
+use game_sdk::gamerules::*;
 use game_sdk::gamestate::*;
 use game_sdk::piece::*;
 
@@ -70,7 +70,7 @@ pub fn evaluate_color(
     color: usize,
     is_colors_turn: bool,
     colors_reachable_fields: u64,
-    other_colors_reachable_fields: u64,
+    //other_colors_reachable_fields: u64,
     parameters: &[f32; 4],
 ) -> f32 {
     let mut value: f32 = 0.;
@@ -101,7 +101,7 @@ pub fn static_evaluation(state: &GameState) -> i16 {
         RED as usize,
         is_reds_turn,
         red_reachable_fields,
-        blue_reachable_fields,
+        //blue_reachable_fields,
         &DEFAULT_PARAMETERS,
     ) as i16;
     let blue = evaluate_color(
@@ -109,7 +109,7 @@ pub fn static_evaluation(state: &GameState) -> i16 {
         BLUE as usize,
         !is_reds_turn,
         blue_reachable_fields,
-        red_reachable_fields,
+        //red_reachable_fields,
         &DEFAULT_PARAMETERS,
     ) as i16;
     red - blue

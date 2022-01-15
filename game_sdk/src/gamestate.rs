@@ -1,5 +1,5 @@
 use super::action::UndoInfo;
-use super::bitboard::bitboard_to_string;
+use super::bitboard::format_bitboard;
 use super::hashing::ZOBRIST_KEYS;
 use super::piece;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
@@ -33,6 +33,7 @@ impl GameState {
         }
     }
 
+    /*
     pub fn compare(&self, other: &GameState) -> bool {
         self.ply == other.ply
             && self.board[RED] == other.board[RED]
@@ -40,7 +41,7 @@ impl GameState {
             && self.stacked == other.stacked
             && self.ambers == other.ambers
             && self.occupied == other.occupied
-    }
+    }*/
 
     pub fn random() -> Self {
         let mut rng = SmallRng::from_entropy();
@@ -134,8 +135,8 @@ impl GameState {
                 );
                 println!(
                     "It should be:\n{}\nNot\n{}",
-                    bitboard_to_string(occupied[color]),
-                    bitboard_to_string(self.occupied[color])
+                    format_bitboard(occupied[color]),
+                    format_bitboard(self.occupied[color])
                 );
                 return false;
             }
@@ -144,8 +145,8 @@ impl GameState {
             println!("There is a field which is owned by both colors.");
             println!(
                 "RED\n{}\nBLUE\n{}",
-                bitboard_to_string(self.occupied[RED]),
-                bitboard_to_string(self.occupied[BLUE])
+                format_bitboard(self.occupied[RED]),
+                format_bitboard(self.occupied[BLUE])
             );
             return false;
         }
@@ -153,8 +154,8 @@ impl GameState {
             println!("A field that contains a stack must be occupied by a piece.");
             println!(
                 "Stacked:\n{}\nOccupied:\n{}",
-                bitboard_to_string(self.stacked),
-                bitboard_to_string(occupied[0] | occupied[1])
+                format_bitboard(self.stacked),
+                format_bitboard(occupied[0] | occupied[1])
             );
             return false;
         }

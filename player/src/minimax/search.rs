@@ -34,7 +34,6 @@ impl Searcher {
         self.root_ply = state.ply;
         self.stop = false;
         self.pv.clear();
-        //let mut best_value = MIN_VALUE;
         let mut best_action = Action::none();
         for depth in 1..=MAX_SEARCH_DEPTH {
             let current_value = self.pv_search(&mut state, 0, depth, MIN_VALUE, MAX_VALUE);
@@ -45,7 +44,6 @@ impl Searcher {
             if self.stop {
                 break;
             }
-            //best_value = current_value;
             self.pv = self.pv_table[0].clone();
             best_action = self.pv[0];
         }

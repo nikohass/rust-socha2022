@@ -1,5 +1,5 @@
 //use super::search::MATE_VALUE;
-//use game_sdk::bitboard::bitboard_to_string;
+//use game_sdk::bitboard::format_bitboard;
 use game_sdk::gamerules::*;
 use game_sdk::gamestate::*;
 use game_sdk::piece::*;

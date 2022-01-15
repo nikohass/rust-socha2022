@@ -2,7 +2,7 @@ pub const SHIFT_RIGHT_MASK: u64 = 9259542123273814144;
 pub const SHIFT_LEFT_MASK: u64 = SHIFT_RIGHT_MASK >> 7;
 pub const FINISH_LINES: [u64; 2] = [SHIFT_RIGHT_MASK, SHIFT_LEFT_MASK];
 
-pub fn bitboard_to_string(bitboard: u64) -> String {
+pub fn format_bitboard(bitboard: u64) -> String {
     let mut string = " ----------------\n".to_string();
     for y in 0..8 {
         string.push('|');

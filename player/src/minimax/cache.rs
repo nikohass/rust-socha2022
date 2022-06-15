@@ -1,6 +1,6 @@
 use game_sdk::action::Action;
 
-pub const TT_SIZE: usize = 2_usize.pow(15);
+pub const TT_SIZE: usize = 2_usize.pow(23);
 
 #[derive(Clone, Copy)]
 pub struct TranspositionTableEntry {
@@ -36,17 +36,11 @@ pub struct TranspositionTable {
 }
 
 impl TranspositionTable {
-    /*pub fn new() -> Self {
-        let entries = vec![TranspositionTableEntry::default(); size];
-        Self { entries }
-    }*/
-
     pub fn insert(&mut self, hash: usize, new_entry: TranspositionTableEntry) {
         let index = hash % TT_SIZE;
         let entry = self.entries[index];
         let is_valid = entry.is_valid();
-        //if (is_valid && entry.depth <= new_entry.depth) || !is_valid {
-        if !is_valid || entry.depth <= new_entry.depth {
+        if entry.depth <= new_entry.depth || !is_valid {
             self.entries[index] = new_entry;
         }
     }

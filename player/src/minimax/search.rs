@@ -56,7 +56,7 @@ impl Searcher {
         depth: usize,
         depth_left: usize,
         mut alpha: i16,
-        beta: i16,
+        mut beta: i16,
     ) -> i16 {
         self.pv_table[depth].clear();
         self.nodes_searched += 1;
@@ -65,7 +65,8 @@ impl Searcher {
         let is_game_over = gamerules::is_game_over(state);
         let original_alpha = alpha;
         let hash = state.hash as usize;
-        let mut best_value = MIN_VALUE;
+        let mut best_value = STANDARD_VALUE;
+        let mut sort_index = 0;
         let color = match state.ply % 2 {
             0 => 1,
             _ => -1,
@@ -76,51 +77,74 @@ impl Searcher {
 
         if is_game_over {
             let result = gamerules::game_result(state);
-            return (MATE_VALUE + 200 - depth as i16) * color * result;
+            return (MATE_VALUE + 60 - depth as i16) * color * result;
         }
-        if depth_left == 0 {
+
+        // Mate distance pruning
+        {
+            alpha = alpha.max((MATE_VALUE + 60 - depth as i16 - 1) * -1);
+            beta = beta.min(MATE_VALUE + 60 - depth as i16 - 1);
+            if alpha >= beta {
+                return beta;
+            }
+        }
+
+        if depth_left == 0 || self.stop {
             return static_evaluation(state) * color;
-        }
-        if self.stop {
-            return STANDARD_VALUE;
         }
 
         gamerules::get_legal_actions(state, &mut self.als[depth]);
         if self.als[depth].size == 0 {
             return MATE_VALUE;
         }
-        if let Some(tt_entry) = self.tt.lookup(hash) {
-            if tt_entry.depth >= depth_left as u8 {
-                let tt_value = if tt_entry.value >= MATE_VALUE {
-                    tt_entry.value - depth as i16
-                } else if tt_entry.value <= MATED_VALUE {
-                    tt_entry.value + depth as i16
-                } else {
-                    tt_entry.value
-                };
-                let mate_length = if tt_entry.value.abs() >= MATE_VALUE {
-                    MATE_VALUE + 200 - tt_entry.value.abs()
-                } else {
-                    0
-                };
-                if state.ply + mate_length as u8 <= 60
-                    && !is_root_node
-                    && (!tt_entry.alpha && !tt_entry.beta
-                        || tt_entry.beta && tt_value >= beta
-                        || tt_entry.alpha && alpha >= tt_value)
-                {
-                    return tt_value;
-                }
-                //let draw_length = if tt_value == 0 && tt_entry.depth
-            }
-            let tt_action = tt_entry.action;
-            for index in 0..self.als[depth].size {
-                if self.als[depth][index] == tt_action {
-                    self.als[depth].swap(index, 0);
-                    //best_value = tt_entry.value;
+
+        // Sort pv move to the front
+        if self.pv_table[depth].size > 0 {
+            let pv_action = self.pv_table[depth][0];
+            for i in 0..self.als[depth].size {
+                if self.als[depth][i] == pv_action {
+                    self.als[depth].swap(0, i);
+                    sort_index += 1;
                     break;
                 }
             }
+        }
+
+        // Transposition table lookup
+        let entry = self.tt.lookup(hash);
+        if let Some(entry) = entry {
+            if entry.depth >= depth_left as u8 {
+                let tt_value = if entry.value >= MATE_VALUE {
+                    entry.value - depth as i16
+                } else if entry.value <= MIN_VALUE {
+                    entry.value + depth as i16
+                } else {
+                    entry.value
+                };
+                let mate_distance = if entry.value.abs() >= MATE_VALUE {
+                    MATE_VALUE + 60 + entry.value.abs()
+                } else {
+                    0
+                };
+                if state.ply + mate_distance as u8 <= 60
+                    && !is_root_node
+                    && (entry.alpha && !entry.beta
+                        || entry.beta && tt_value >= beta
+                        || entry.alpha && alpha >= tt_value)
+                {
+                    return tt_value;
+                }
+            }
+            /*// Sort tt move to the front
+            if entry.depth == depth_left as u8 {
+                for i in 0..self.als[depth].size {
+                    if self.als[depth][i] == entry.action {
+                        self.als[depth].swap(sort_index, i);
+                        // sort_index += 1;
+                        break;
+                    }
+                }
+            }*/
         }
 
         for index in 0..self.als[depth].size {
@@ -136,7 +160,6 @@ impl Searcher {
                 }
                 value
             };
-            //let value = -self.pv_search(state, depth + 1, depth_left - 1, -beta, -alpha);
             gamerules::undo_action(state, action);
             if value > best_value {
                 best_value = value;
@@ -150,23 +173,24 @@ impl Searcher {
                 }
                 if value > alpha {
                     alpha = value;
+                    if alpha >= beta {
+                        break;
+                    }
                 }
             }
-            if alpha >= beta {
-                break;
-            }
         }
-        self.tt.insert(
+        // if !self.stop
+        /*self.tt.insert(
             hash,
             TranspositionTableEntry {
                 value: best_value,
                 action: self.pv_table[depth][0],
-                depth: depth as u8,
+                depth: depth_left as u8,
                 hash,
                 alpha: best_value <= original_alpha,
                 beta: alpha >= beta,
             },
-        );
+        );*/
         alpha
     }
 }
@@ -194,5 +218,12 @@ impl Player for Searcher {
 
     fn set_time_limit(&mut self, time_limit: u64) {
         self.time_limit = time_limit as u128
+    }
+
+    fn reset(&mut self) {
+        self.root_ply = 0;
+        self.stop = false;
+        self.nodes_searched = 0;
+        self.tt = TranspositionTable::default();
     }
 }

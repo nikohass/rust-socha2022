@@ -53,6 +53,10 @@ impl TranspositionTable {
             None
         }
     }
+
+    pub fn get_fill_status(&self) -> usize {
+        self.entries.iter().filter(|e| e.is_valid()).count()
+    }
 }
 
 impl Default for TranspositionTable {

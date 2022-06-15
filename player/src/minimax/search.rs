@@ -20,6 +20,7 @@ pub struct Searcher {
     pub als: ActionListStack,
     pub pv: ActionList,
     pub pv_table: ActionListStack,
+    pub pv_hash_table: Vec<usize>,
     pub start_time: Instant,
     pub time_limit: u128,
     pub tt: TranspositionTable,
@@ -34,6 +35,7 @@ impl Searcher {
         self.root_ply = state.ply;
         self.stop = false;
         self.pv.clear();
+        self.pv_hash_table.clear();
         let mut best_action = Action::none();
         for depth in 1..=MAX_SEARCH_DEPTH {
             let current_value = self.pv_search(&mut state, 0, depth, MIN_VALUE, MAX_VALUE);
@@ -44,7 +46,16 @@ impl Searcher {
             if self.stop {
                 break;
             }
+            let mut toy_state = state.clone();
             self.pv = self.pv_table[0].clone();
+            //self.pv_table.clear();
+            self.pv_hash_table.clear();
+            for i in 0..self.pv.size {
+                self.pv_hash_table.push(toy_state.hash as usize);
+                gamerules::do_action(&mut toy_state, self.pv[i]);
+            }
+            //let tt_fill_status = self.tt.get_fill_status();
+            //println!("Transposition Table Fill Status: {}/{} ({:.3}%)", tt_fill_status, TT_SIZE, tt_fill_status as f64 / TT_SIZE as f64 * 100.);
             best_action = self.pv[0];
         }
         best_action
@@ -82,7 +93,7 @@ impl Searcher {
 
         // Mate distance pruning
         {
-            alpha = alpha.max((MATE_VALUE + 60 - depth as i16 - 1) * -1);
+            alpha = alpha.max(-(MATE_VALUE + 60 - depth as i16 - 1));
             beta = beta.min(MATE_VALUE + 60 - depth as i16 - 1);
             if alpha >= beta {
                 return beta;
@@ -99,7 +110,7 @@ impl Searcher {
         }
 
         // Sort pv move to the front
-        if self.pv_table[depth].size > 0 {
+        if self.pv_table[depth].size > 0 && hash == self.pv_hash_table[depth] {
             let pv_action = self.pv_table[depth][0];
             for i in 0..self.als[depth].size {
                 if self.als[depth][i] == pv_action {
@@ -113,7 +124,7 @@ impl Searcher {
         // Transposition table lookup
         let entry = self.tt.lookup(hash);
         if let Some(entry) = entry {
-            if entry.depth >= depth_left as u8 {
+            /*if entry.depth >= depth_left as u8 {
                 let tt_value = if entry.value >= MATE_VALUE {
                     entry.value - depth as i16
                 } else if entry.value <= MIN_VALUE {
@@ -128,14 +139,15 @@ impl Searcher {
                 };
                 if state.ply + mate_distance as u8 <= 60
                     && !is_root_node
+                    && !is_pv_node
                     && (entry.alpha && !entry.beta
                         || entry.beta && tt_value >= beta
                         || entry.alpha && alpha >= tt_value)
                 {
                     return tt_value;
                 }
-            }
-            /*// Sort tt move to the front
+            }*/
+            // Sort tt move to the front
             if entry.depth == depth_left as u8 {
                 for i in 0..self.als[depth].size {
                     if self.als[depth][i] == entry.action {
@@ -144,7 +156,7 @@ impl Searcher {
                         break;
                     }
                 }
-            }*/
+            }
         }
 
         for index in 0..self.als[depth].size {
@@ -179,18 +191,19 @@ impl Searcher {
                 }
             }
         }
-        // if !self.stop
-        /*self.tt.insert(
-            hash,
-            TranspositionTableEntry {
-                value: best_value,
-                action: self.pv_table[depth][0],
-                depth: depth_left as u8,
+        if !self.stop {
+            self.tt.insert(
                 hash,
-                alpha: best_value <= original_alpha,
-                beta: alpha >= beta,
-            },
-        );*/
+                TranspositionTableEntry {
+                    value: best_value,
+                    action: self.pv_table[depth][0],
+                    depth: depth_left as u8,
+                    hash,
+                    alpha: best_value <= original_alpha,
+                    beta: alpha >= beta,
+                },
+            );
+        }
         alpha
     }
 }
@@ -204,6 +217,7 @@ impl Default for Searcher {
             als: ActionListStack::with_size(MAX_SEARCH_DEPTH),
             pv: ActionList::default(),
             pv_table: ActionListStack::with_size(MAX_SEARCH_DEPTH),
+            pv_hash_table: Vec::with_capacity(MAX_SEARCH_DEPTH),
             start_time: Instant::now(),
             time_limit: 1980,
             tt: TranspositionTable::default(),
@@ -224,6 +238,9 @@ impl Player for Searcher {
         self.root_ply = 0;
         self.stop = false;
         self.nodes_searched = 0;
+        self.pv = ActionList::default();
+        self.pv_table = ActionListStack::with_size(MAX_SEARCH_DEPTH);
+        self.pv_hash_table = Vec::with_capacity(MAX_SEARCH_DEPTH);
         self.tt = TranspositionTable::default();
     }
 }

@@ -1,17 +1,18 @@
 use super::cache::{TranspositionTable, TranspositionTableEntry};
-use super::evaluation::static_evaluation;
+use super::evaluation::{static_evaluation, MATE_VALUE};
 use game_sdk::action::*;
 use game_sdk::gamerules;
 use game_sdk::gamestate::*;
 use game_sdk::player::Player;
 use std::time::Instant;
 
-pub const MATE_VALUE: i16 = 31_000;
-pub const MATED_VALUE: i16 = -MATE_VALUE;
 pub const MAX_VALUE: i16 = std::i16::MAX;
 pub const MIN_VALUE: i16 = -MAX_VALUE;
-pub const MAX_SEARCH_DEPTH: usize = 64;
+pub const MAX_SEARCH_DEPTH: usize = 60;
 pub const STANDARD_VALUE: i16 = std::i16::MIN + 1;
+
+// TODO: Killer Moves
+// TODO: History Heuristic
 
 pub struct Searcher {
     pub root_ply: u8,

@@ -1,16 +1,18 @@
+use super::piece;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
 
 // 00000000 00111111 from
 // 00001111 11000000 to
 // 00110000 00000000 piece
+// 01000000 00000000 capture
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Action(u16);
 
 impl Action {
-    pub fn new(from: u16, to: u16, piece: u8) -> Self {
-        Self(from | to << 6 | (piece as u16) << 12)
+    pub fn new(from: u16, to: u16, piece: u8, capture: bool) -> Self {
+        Self(from | to << 6 | (piece as u16) << 12 | (capture as u16) << 14)
     }
 
     pub fn from(self) -> u16 {
@@ -22,11 +24,15 @@ impl Action {
     }
 
     pub fn piece(self) -> u16 {
-        self.0 >> 12
+        self.0 >> 12 & 0b11
+    }
+
+    pub fn is_capture(self) -> bool {
+        self.0 >> 14 & 0b1 > 0
     }
 
     pub fn serialize(self) -> String {
-        self.0.to_string()
+        (self.0 & 0b11111111111111).to_string() // TODO: remove this
     }
 
     pub fn deserialize(string: String) -> Self {
@@ -52,7 +58,8 @@ impl Action {
 
 impl Display for Action {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{} {}", self.from(), self.to(),)
+        let p = piece::to_string(piece::PIECES[self.piece() as usize]);
+        write!(f, "{} from {} to {}", p, self.from(), self.to(),)
     }
 }
 
@@ -125,6 +132,15 @@ impl ActionList {
 
     pub fn swap(&mut self, a: usize, b: usize) {
         self.actions.swap(a, b);
+    }
+
+    pub fn find_action(&self, action: Action) -> Option<usize> {
+        for i in 0..self.size {
+            if self.actions[i] == action {
+                return Some(i);
+            }
+        }
+        None
     }
 }
 

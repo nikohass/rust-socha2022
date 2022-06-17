@@ -165,8 +165,10 @@ pub fn append_cockle_actions(state: &GameState, al: &mut ActionList, color: usiz
         let mut destinations = COCKLE_PATTERN[from as usize | color << 6] & !state.occupied[color];
         while destinations > 0 {
             let to = destinations.trailing_zeros();
-            destinations ^= 1 << to;
-            al.push(Action::new(from as u16, to as u16, piece::COCKLE));
+            let bit = 1 << to;
+            let capture = bit & state.occupied[color ^ 1] > 0;
+            destinations ^= bit;
+            al.push(Action::new(from as u16, to as u16, piece::COCKLE, capture));
         }
     }
 }
@@ -179,8 +181,10 @@ pub fn append_gull_actions(state: &GameState, al: &mut ActionList, color: usize)
         let mut destinations = GULL_PATTERN[from as usize] & !state.occupied[color];
         while destinations > 0 {
             let to = destinations.trailing_zeros();
-            destinations ^= 1 << to;
-            al.push(Action::new(from as u16, to as u16, piece::GULL));
+            let bit = 1 << to;
+            let capture = bit & state.occupied[color ^ 1] > 0;
+            destinations ^= bit;
+            al.push(Action::new(from as u16, to as u16, piece::GULL, capture));
         }
     }
 }
@@ -194,8 +198,15 @@ pub fn append_starfish_actions(state: &GameState, al: &mut ActionList, color: us
             STARFISH_PATTERN[from as usize | color << 6] & !state.occupied[color];
         while destinations > 0 {
             let to = destinations.trailing_zeros();
-            destinations ^= 1 << to;
-            al.push(Action::new(from as u16, to as u16, piece::STARFISH));
+            let bit = 1 << to;
+            let capture = bit & state.occupied[color ^ 1] > 0;
+            destinations ^= bit;
+            al.push(Action::new(
+                from as u16,
+                to as u16,
+                piece::STARFISH,
+                capture,
+            ));
         }
     }
 }
@@ -208,8 +219,10 @@ pub fn append_seal_actions(state: &GameState, al: &mut ActionList, color: usize)
         let mut destinations = SEAL_PATTERN[from as usize] & !state.occupied[color];
         while destinations > 0 {
             let to = destinations.trailing_zeros();
-            destinations ^= 1 << to;
-            al.push(Action::new(from as u16, to as u16, piece::SEAL));
+            let bit = 1 << to;
+            let capture = bit & state.occupied[color ^ 1] > 0;
+            destinations ^= bit;
+            al.push(Action::new(from as u16, to as u16, piece::SEAL, capture));
         }
     }
 }

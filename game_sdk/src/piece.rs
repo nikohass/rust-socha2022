@@ -8,3 +8,13 @@ pub fn to_char(piece: u8, color: usize) -> char {
     let chars: [[char; 4]; 2] = [['C', 'G', 'F', 'S'], ['c', 'g', 'f', 's']];
     chars[color][piece as usize]
 }
+
+pub fn to_string(piece: u8) -> String {
+    match piece {
+        COCKLE => "COCKLE".to_string(),
+        GULL => "GULL".to_string(),
+        STARFISH => "STARFISH".to_string(),
+        SEAL => "SEAL".to_string(),
+        _ => panic!("Invalid piece"),
+    }
+}

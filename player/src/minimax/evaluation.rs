@@ -5,7 +5,24 @@ use game_sdk::piece::*;
 
 pub const MATE_VALUE: i16 = 31_000;
 
+struct EvaluationParameters {
+    amber_value: f32,
+    turn_advantage: f32,
+    stacked_piece_value: f32,
+    capture_value: f32,
+    reachable_fields_value: [f32; 4],
+}
+const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
+    amber_value: 100.0,
+    turn_advantage: 3.0,
+    stacked_piece_value: 20.0,
+    capture_value: 10.0,
+    reachable_fields_value: [1.0, 1.0, 1.0, 1.0],
+};
+
 struct ReachableFields {
+    //pieces: [u64; 4],
+    //stacks: [u64; 4],
     cockle: u64,
     cockle_stack: u64,
     gull: u64,
@@ -102,51 +119,27 @@ struct Captures {
 }
 
 impl Captures {
-    pub fn calculate(
-        red_reachable_fields: &ReachableFields,
-        red_occupied_fields: u64,
-        blue_reachable_fields: &ReachableFields,
-        blue_occupied_fields: u64,
+    #[inline(always)]
+    pub fn for_color(
+        reachable_fields: &ReachableFields,
+        opponent_occupied_fields: u64,
         stacked: u64,
-    ) -> (Self, Self) {
-        (
-            Self {
-                stack_captures: red_reachable_fields.all & blue_occupied_fields & stacked,
-                captures_stack: red_reachable_fields.all_stacked & blue_occupied_fields,
-            },
-            Self {
-                stack_captures: blue_reachable_fields.all & red_occupied_fields & stacked,
-                captures_stack: blue_reachable_fields.all_stacked & red_occupied_fields,
-            },
-        )
+    ) -> Self {
+        Self {
+            stack_captures: reachable_fields.all & opponent_occupied_fields & stacked,
+            captures_stack: reachable_fields.all_stacked & opponent_occupied_fields,
+        }
     }
 }
-
-/*fn save_capture(
-    current_player_reachable_fields: &ReachableFields,
-    current_player_occupied_fields: u64,
-    other_player_reachable_fields: &ReachableFields,
-    other_player_occupied_fields: u64,
-    stacked: u64,
-) -> bool {
-    let stacked_pieces_that_i_can_capture =
-        current_player_reachable_fields.all & other_player_occupied_fields & stacked;
-    let pieces_that_i_can_capture_with_a_stacked_piece =
-        current_player_reachable_fields.all_stacked & other_player_occupied_fields;
-    stacked_pieces_that_i_can_capture | pieces_that_i_can_capture_with_a_stacked_piece > 0
-}*/
 
 pub fn static_evaluation(state: &GameState) -> i16 {
     let red_reachable_fields = ReachableFields::for_color(RED, &state.board[RED], state.stacked);
     let blue_reachable_fields = ReachableFields::for_color(BLUE, &state.board[BLUE], state.stacked);
     let is_reds_turn = state.ply % 2 == 0;
-    let (red_captures, blue_captures) = Captures::calculate(
-        &red_reachable_fields,
-        state.occupied[RED],
-        &blue_reachable_fields,
-        state.occupied[BLUE],
-        state.stacked,
-    );
+    let red_captures =
+        Captures::for_color(&red_reachable_fields, state.occupied[BLUE], state.stacked);
+    let blue_captures =
+        Captures::for_color(&blue_reachable_fields, state.occupied[RED], state.stacked);
     // Check whether the current player has a winning move
     if is_reds_turn {
         if state.ambers[RED] == 1
@@ -169,7 +162,7 @@ pub fn static_evaluation(state: &GameState) -> i16 {
     {
         return -MATE_VALUE;
     }
-
+    // Check whether the other player has a winning move
     if !is_reds_turn {
         if red_captures.stack_captures | red_captures.captures_stack > 1
             && state.ambers[RED] == 1
@@ -186,276 +179,48 @@ pub fn static_evaluation(state: &GameState) -> i16 {
         return -MATE_VALUE;
     }
 
-    let capture_differnce = (red_captures.captures_stack | red_captures.stack_captures).count_ones()
-        as f32
-        - (blue_captures.captures_stack | blue_captures.stack_captures).count_ones() as f32
-            * DEFAULT_PARAMETERS.capture_value;
-    let stacked_pieces = ((state.stacked & state.occupied[RED]).count_ones() as f32
-        - (state.stacked & state.occupied[BLUE]).count_ones() as f32)
-        * DEFAULT_PARAMETERS.stacked_piece_value;
-    let turn_advantage = DEFAULT_PARAMETERS.turn_advantage * if is_reds_turn { 1. } else { -1. };
-    let amber_value =
-        (state.ambers[RED] as f32 - state.ambers[BLUE] as f32) * DEFAULT_PARAMETERS.amber_value;
-    let save = ((((state.occupied[BLUE] & red_reachable_fields.all) & !state.stacked).count_ones()
-        as f32)
-        - (((state.occupied[RED] & blue_reachable_fields.all) & !state.stacked).count_ones()
-            as f32))
-        * 1.0;
-    (stacked_pieces + turn_advantage + amber_value + save + capture_differnce).round() as i16
+    let red = evaluate_color(
+        state,
+        RED,
+        &red_reachable_fields,
+        //&blue_reachable_fields,
+        &red_captures,
+        //&blue_captures,
+    );
+    let blue = evaluate_color(
+        state,
+        BLUE,
+        &blue_reachable_fields,
+        //&red_reachable_fields,
+        &blue_captures,
+        //&red_captures,
+    );
+    let turn_advantage =
+        DEFAULT_PARAMETERS.turn_advantage * if state.ply % 2 == 0 { 1.0 } else { -1.0 };
+    (red - blue + turn_advantage).round() as i16
 }
 
-struct EvaluationParameters {
-    amber_value: f32,
-    turn_advantage: f32,
-    stacked_piece_value: f32,
-    capture_value: f32,
-}
-const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
-    amber_value: 100.0,
-    turn_advantage: 3.0,
-    stacked_piece_value: 20.0,
-    capture_value: 10.0,
-};
-
-/*
-pub fn evaluate_color(
-    state: &GameState,
-    color: usize,
-    is_colors_turn: bool,
-    colors_reachable_fields: u64,
-    //other_colors_reachable_fields: u64,
-) -> f32 {
-    let parameters: [f32; 4] = [20., 100., 1., 3.];
-    let mut value: f32 = 0.;
-    let other_color = color ^ 1;
-
-    let stacked_pieces = (state.stacked & state.occupied[color]).count_ones() as f32;
-    value += stacked_pieces * parameters[0];
-
-    let ambers = state.ambers[color] as f32;
-    value += ambers * parameters[1];
-
-    let covered = state.occupied[other_color] & colors_reachable_fields;
-    let save = covered & !state.stacked;
-    value += (save.count_ones() as f32) * parameters[2];
-
-    if is_colors_turn {
-        value += parameters[3];
-    }
-    value
-}*/
-
-/*
 fn evaluate_color(
     state: &GameState,
     color: usize,
-    is_my_turn: bool,
     my_reachable_fields: &ReachableFields,
-    other_reachable_fields: &ReachableFields,
+    //opponent_reachable_fields: &ReachableFields,
     my_captures: &Captures,
-    other_captures: &Captures,
+    //opponent_captures: &Captures,
 ) -> f32 {
-    let other_color = color ^ 1;
-    let mut value: f32 = state.ambers[color] as f32 * DEFAULT_PARAMETERS.amber_value;
-    //let covered = state.occupied[other_color] & my_reachable_fields.all;
-    //let save = covered & !state.stacked;
-    //value += (save.count_ones() as f32) * DEFAULT_PARAMETERS.save_value;
-    value
-}*/
-
-/*
-pub const DEFAULT_PARAMETERS: [f32; 4] = [20., 100., 1., 3.];
-
-pub fn evaluate_color(
-    state: &GameState,
-    color: usize,
-    is_colors_turn: bool,
-    colors_reachable_fields: u64,
-    //other_colors_reachable_fields: u64,
-    parameters: &[f32; 4],
-) -> f32 {
-    let mut value: f32 = 0.;
-    let other_color = color ^ 1;
-
-    let stacked_pieces = (state.stacked & state.occupied[color]).count_ones() as f32;
-    value += stacked_pieces * parameters[0];
-
-    let ambers = state.ambers[color] as f32;
-    value += ambers * parameters[1];
-
-    let covered = state.occupied[other_color] & colors_reachable_fields;
-    let save = covered & !state.stacked;
-    value += (save.count_ones() as f32) * parameters[2];
-
-    if is_colors_turn {
-        value += parameters[3];
-    }
-    value
+    let amber_value = DEFAULT_PARAMETERS.amber_value * (state.ambers[color] as f32);
+    let stacked_piece_value = DEFAULT_PARAMETERS.stacked_piece_value
+        * ((state.stacked & state.occupied[color]).count_ones() as f32);
+    let capture_value = DEFAULT_PARAMETERS.capture_value
+        * ((my_captures.captures_stack | my_captures.stack_captures).count_ones() as f32);
+    let reachable_fields_value = DEFAULT_PARAMETERS.reachable_fields_value[COCKLE as usize]
+        * (my_reachable_fields.cockle.count_ones() as f32)
+        + DEFAULT_PARAMETERS.reachable_fields_value[GULL as usize]
+            * (my_reachable_fields.gull.count_ones() as f32)
+        + DEFAULT_PARAMETERS.reachable_fields_value[STARFISH as usize]
+            * (my_reachable_fields.starfish.count_ones() as f32)
+        + DEFAULT_PARAMETERS.reachable_fields_value[SEAL as usize]
+            * (my_reachable_fields.seal.count_ones() as f32);
+    // TODO: Piece values
+    amber_value + stacked_piece_value + capture_value + reachable_fields_value
 }
-*/
-/*
-pub fn evaluate_state(state: &GameState) -> i16 {
-    let red_reachable_fields =
-        ReachableFields.for_color(RED, state.board[RED as usize], state.stacked);
-    let blue_reachable_fields =
-        ReachableFields.for_color(BLUE, state.board[BLUE as usize], state.stacked);
-    evaluate_color(state, RED, red_reachable_fields, blue_reachable_fields)
-        - evaluate_color(state, BLUE, blue_reachable_fields, red_reachable_fields)
-}
-
-pub fn evaluate_color(
-    state: &GameState,
-    color: Color,
-    my_reachable_fields: ReachableFields,
-    opponent_reachable_fields: ReachableFields,
-) -> i16 {
-    let is_my_turn = state.ply % 2 == color as u8;
-    let my_color = color as usize;
-    let mut my_ambers = state.ambers[my_color];
-    let my_pieces = state.occupied[my_color];
-    let opponent_pieces = state.occupied[opponent_color];
-    if is_my_turn {
-        let can_get_amber = (my_reachable_fields.all & opponent_pieces & stacked > 0)
-            || (my_reachable_fields.all_stacked & opponent_pieces > 0);
-        if can_get_amber {
-            my_ambers += 1;
-        }
-        if my_ambers >= 2 {
-            return 100000;
-        }
-    }*/
-/*let opponent_color = (color as usize) ^ 1;
-    let my_ambers = state.ambers[my_color];
-    let other_ambers = state.ambers[opponent_color];
-
-    let possible_captures = my_reachable_fields.all & opponent_pieces;
-    let possible_stacked_captures = my_reachable_fields.all_stacked & opponent_pieces;
-    if (possible_stacked_captures != 0 || possible_captures & stacked)
-        && is_my_turn
-        && my_ambers >= 1
-    {
-        return MATE_VALUE;
-    }
-
-    let value = my_ambers as f32 * DEFAULT_PARAMETERS.amber_value;
-}*/
-
-/*
-
-//use super::search::MATE_VALUE;
-//use game_sdk::bitboard::format_bitboard;
-use game_sdk::gamerules::*;
-use game_sdk::gamestate::*;
-use game_sdk::piece::*;
-
-//pub const PIECE_VALUE_TABLE: [[[f32; 64]; 4]; 2] = [[[0.; 64]; 4]; 2];
-/*let mut piece_value: f32 = 0.;
-for piece in 0..4 {
-    let mut pieces = state.board[color][piece];
-    while pieces > 0 {
-        let position = pieces.trailing_zeros();
-        pieces ^= 1 << position;
-        piece_value += PIECE_VALUE_TABLE[color][piece][position as usize];
-    }
-}*/
-
-pub const DEFAULT_PARAMETERS: [f32; 4] = [20., 100., 1., 3.];
-
-pub fn get_reachable_fields(board: &[u64; 4], color: usize) -> u64 {
-    let mut reachable_fields: u64 = 0;
-    let color = color << 6;
-    let mut cockles = board[COCKLE as usize];
-    while cockles > 0 {
-        let position = cockles.trailing_zeros();
-        cockles ^= 1 << position;
-        reachable_fields |= COCKLE_PATTERN[position as usize | color];
-    }
-    let mut gulls = board[GULL as usize];
-    while gulls > 0 {
-        let position = gulls.trailing_zeros();
-        gulls ^= 1 << position;
-        reachable_fields |= GULL_PATTERN[position as usize];
-    }
-    let mut starfish = board[STARFISH as usize];
-    while starfish > 0 {
-        let position = starfish.trailing_zeros();
-        starfish ^= 1 << position;
-        reachable_fields |= STARFISH_PATTERN[position as usize | color];
-    }
-    let mut seals = board[SEAL as usize];
-    while seals > 0 {
-        let position = seals.trailing_zeros();
-        seals ^= 1 << position;
-        reachable_fields |= SEAL_PATTERN[position as usize];
-    }
-    reachable_fields
-}
-/*let mut value: f32 = 0.;
-let other_color = color ^ 0b1;
-let ambers = state.ambers[color] as f32;
-value += ambers * parameters[0];
-
-let pieces_that_can_be_captured = state.occupied[other_color] & colors_reachable_fields;
-let stacked_pieces_that_can_be_captured = state.stacked & pieces_that_can_be_captured;
-if stacked_pieces_that_can_be_captured > 0 && ambers >= 1.0 {
-    if color == BLUE as usize || state.ambers[other_color] == 0 {
-        return MATE_VALUE as f32;
-    } else {
-        let a = state.occupied[color] & other_colors_reachable_fields & state.stacked;
-        if a == 0 {
-            return MATE_VALUE as f32;
-        }
-    }
-}
-value*/
-
-pub fn evaluate_color(
-    state: &GameState,
-    color: usize,
-    is_colors_turn: bool,
-    colors_reachable_fields: u64,
-    //other_colors_reachable_fields: u64,
-    parameters: &[f32; 4],
-) -> f32 {
-    let mut value: f32 = 0.;
-    let other_color = color ^ 1;
-
-    let stacked_pieces = (state.stacked & state.occupied[color]).count_ones() as f32;
-    value += stacked_pieces * parameters[0];
-
-    let ambers = state.ambers[color] as f32;
-    value += ambers * parameters[1];
-
-    let covered = state.occupied[other_color] & colors_reachable_fields;
-    let save = covered & !state.stacked;
-    value += (save.count_ones() as f32) * parameters[2];
-
-    if is_colors_turn {
-        value += parameters[3];
-    }
-    value
-}
-
-pub fn static_evaluation(state: &GameState) -> i16 {
-    let is_reds_turn = state.get_current_color() == RED as usize;
-    let red_reachable_fields = get_reachable_fields(&state.board[RED as usize], RED as usize);
-    let blue_reachable_fields = get_reachable_fields(&state.board[BLUE as usize], BLUE as usize);
-    let red = evaluate_color(
-        state,
-        RED as usize,
-        is_reds_turn,
-        red_reachable_fields,
-        //blue_reachable_fields,
-        &DEFAULT_PARAMETERS,
-    ) as i16;
-    let blue = evaluate_color(
-        state,
-        BLUE as usize,
-        !is_reds_turn,
-        blue_reachable_fields,
-        //red_reachable_fields,
-        &DEFAULT_PARAMETERS,
-    ) as i16;
-    red - blue
-}
-*/

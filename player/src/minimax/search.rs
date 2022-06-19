@@ -22,10 +22,11 @@ pub struct Searcher {
     pub history_heuristic: [[[u64; 64]; 64]; 2],
     pub butterfly_heuristic: [[[u64; 64]; 64]; 2],
     pub killer_heuristic: [[Action; 2]; MAX_SEARCH_DEPTH],
+    //pub counter_move_heuristic: [[Action; 64]; 64],
     pub start_time: Instant,
     pub time_limit: u128,
     pub tt: TranspositionTable,
-    // TODO: Evaluation cache
+    //pub evaluation_cache: EvaluationCache,
 }
 
 impl Default for Searcher {
@@ -40,9 +41,11 @@ impl Default for Searcher {
             history_heuristic: [[[0; 64]; 64]; 2],
             butterfly_heuristic: [[[1; 64]; 64]; 2],
             killer_heuristic: [[Action::none(); 2]; MAX_SEARCH_DEPTH],
+            //counter_move_heuristic: [[Action::none(); 64]; 64],
             start_time: Instant::now(),
-            time_limit: 1980,
+            time_limit: 1970,
             tt: TranspositionTable::default(),
+            //evaluation_cache: EvaluationCache::default(),
         }
     }
 }
@@ -66,7 +69,9 @@ impl Player for Searcher {
         self.history_heuristic = [[[0; 64]; 64]; 2];
         self.butterfly_heuristic = [[[1; 64]; 64]; 2];
         self.killer_heuristic = [[Action::none(); 2]; MAX_SEARCH_DEPTH];
+        //self.counter_move_heuristic = [[Action::none(); 64]; 64];
         self.tt = TranspositionTable::default();
+        //self.evaluation_cache = EvaluationCache::default();
     }
 }
 
@@ -107,7 +112,7 @@ impl Searcher {
             if self.pv.size != 0 {
                 best_action = self.pv[0];
             }
-            println!("{}", self.pv);
+            println!("{}", self.format_pv());
             if self.pv.size != depth {
                 println!("Reached the end of the search tree.");
                 if current_value >= MATE_VALUE {
@@ -139,6 +144,22 @@ impl Searcher {
             println!("No move found.");
         }
         best_action
+    }
+
+    fn format_pv(&self) -> String {
+        let mut s = String::new();
+        let mut line_length = 0;
+        for i in 0..self.pv.size {
+            let next_action = &format!("{} ", self.pv[i]);
+            let len = next_action.len();
+            if line_length + len > 100 {
+                s.push_str("\n    .      .         .           .         . ");
+                line_length = 0;
+            }
+            line_length += len;
+            s.push_str(next_action);
+        }
+        s
     }
 
     fn pv_search(
@@ -181,6 +202,13 @@ impl Searcher {
         }
 
         if depth_left == 0 || self.stop {
+            /*return if let Some(value) = self.evaluation_cache.lookup(hash) {
+                value
+            } else {
+                let value = static_evaluation(state);
+                self.evaluation_cache.insert(hash, value);
+                value
+            } * color_sign;*/
             return static_evaluation(state) * color_sign;
         }
 

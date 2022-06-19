@@ -8,6 +8,7 @@ use game_sdk::gamestate::GameState;
 pub const PV_ACTION_VALUE: u64 = std::u64::MAX;
 pub const TT_ACTION_VALUE: u64 = std::u64::MAX - 1;
 pub const KILLER_MOVE_VALUE: u64 = std::u64::MAX - 2;
+pub const AMBER_CAPUTURE_VALUE: u64 = 50_000;
 pub const CAPTURE_VALUE: u64 = 1_000;
 
 pub struct MoveOrderer {
@@ -36,6 +37,8 @@ impl MoveOrderer {
         history_heuristic: &[[u64; 64]; 64],
         butterfly_heuristic: &[[u64; 64]; 64],
     ) {
+        let color = state.get_current_color();
+        // TODO: Consider the number of ambers for action.is_amber_capture()
         gamerules::get_legal_actions(state, &mut self.als[depth]);
         for i in 0..self.als[depth].size {
             let action = self.als[depth][i];
@@ -49,7 +52,9 @@ impl MoveOrderer {
                 let history_value = history_heuristic[action.to() as usize][action.from() as usize];
                 let butterfly_value =
                     butterfly_heuristic[action.to() as usize][action.from() as usize];
-                let capture_value = if action.is_capture() {
+                let capture_value = if action.is_amber_capture() || action.is_promotion(color) {
+                    AMBER_CAPUTURE_VALUE
+                } else if action.is_capture() {
                     CAPTURE_VALUE
                 } else {
                     0

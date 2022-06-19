@@ -1,8 +1,7 @@
-use super::action::ActionList;
+use super::action::{ActionList, ActionListStack};
 use super::gamerules;
 use super::gamestate::GameState;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
-
 /*
 pub fn random_gamestate(ply: u8) -> GameState {
     let mut rng = SmallRng::from_entropy();
@@ -65,3 +64,28 @@ pub fn test_hashing() {
         }
     }
 }
+
+#[test]
+pub fn test_move_generation() {
+    let mut als = ActionListStack::with_size(10);
+    let mut state = GameState::from_fen("29 281474976710657 1099511628032 8589935104 0 35184372088832 0 549755813888 2147483776 0 2");
+    let result = perft(&mut state, 6, &mut als);
+    assert_eq!(result, 4961202);
+}
+
+fn perft(state: &mut GameState, depth: usize, als: &mut ActionListStack) -> usize {
+    if depth == 0 {
+        return 1;
+    }
+    let mut children: usize = 0;
+    gamerules::get_legal_actions(state, &mut als[depth]);
+    for i in 0..als[depth].size {
+        let action = als[depth][i];
+        gamerules::do_action(state, action);
+        children += perft(state, depth - 1, als);
+        gamerules::undo_action(state, action);
+    }
+    children
+}
+
+// cargo test --release -- --nocapture

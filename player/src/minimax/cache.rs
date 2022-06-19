@@ -1,6 +1,7 @@
 use game_sdk::action::Action;
 
 pub const TT_SIZE: usize = 2_usize.pow(23);
+//pub const EVAL_CACHE_SIZE: usize = 2_usize.pow(25);
 
 #[derive(Clone, Copy)]
 pub struct TranspositionTableEntry {
@@ -65,3 +66,36 @@ impl Default for TranspositionTable {
         Self { entries }
     }
 }
+/*
+#[derive(Clone, Copy)]
+pub struct EvaluationCacheEntry {
+    pub hash: usize,
+    pub value: i16,
+}
+
+pub struct EvaluationCache {
+    pub entries: Vec<EvaluationCacheEntry>,
+}
+
+impl Default for EvaluationCache {
+    fn default() -> Self {
+        let entries = vec![EvaluationCacheEntry { hash: 0, value: 0 }; EVAL_CACHE_SIZE];
+        Self { entries }
+    }
+}
+
+impl EvaluationCache {
+    pub fn lookup(&self, hash: usize) -> Option<i16> {
+        let entry = self.entries[hash % EVAL_CACHE_SIZE];
+        if entry.hash == hash {
+            Some(entry.value)
+        } else {
+            None
+        }
+    }
+
+    pub fn insert(&mut self, hash: usize, value: i16) {
+        self.entries[hash % EVAL_CACHE_SIZE] = EvaluationCacheEntry { hash, value };
+    }
+}
+*/

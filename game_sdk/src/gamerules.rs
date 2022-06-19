@@ -87,8 +87,8 @@ pub fn do_action(state: &mut GameState, action: Action) {
     } else {
         state.occupied[color] ^= changed_fields;
         state.board[color][piece] ^= changed_fields;
-        state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
-        state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
+        state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
+        state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
         if state.stacked & from_bit > 0 {
             state.stacked ^= from_bit | to_bit;
         }
@@ -99,7 +99,7 @@ pub fn do_action(state: &mut GameState, action: Action) {
         }
         let mask = !to_bit;
         if state.board[color][piece] & to_bit > 0 {
-            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
+            state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
         }
         state.board[color][piece] &= mask;
         state.occupied[color] &= mask;
@@ -151,78 +151,86 @@ pub fn undo_action(state: &mut GameState, action: Action) {
 pub fn get_legal_actions(state: &GameState, al: &mut ActionList) {
     al.clear();
     let color = state.get_current_color();
-    append_cockle_actions(state, al, color);
-    append_starfish_actions(state, al, color);
-    append_seal_actions(state, al, color);
-    append_gull_actions(state, al, color);
+    color_dependent_pieces(state, al, color, piece::COCKLE, &COCKLE_PATTERN);
+    color_dependent_pieces(state, al, color, piece::STARFISH, &STARFISH_PATTERN);
+    color_independent_pieces(state, al, color, piece::SEAL, &SEAL_PATTERN);
+    color_independent_pieces(state, al, color, piece::GULL, &GULL_PATTERN);
 }
 
-pub fn append_cockle_actions(state: &GameState, al: &mut ActionList, color: usize) {
-    let mut cockles = state.board[color][piece::COCKLE as usize];
-    while cockles > 0 {
-        let from = cockles.trailing_zeros();
-        cockles ^= 1 << from;
-        let mut destinations = COCKLE_PATTERN[from as usize | color << 6] & !state.occupied[color];
-        while destinations > 0 {
-            let to = destinations.trailing_zeros();
-            let bit = 1 << to;
-            let capture = bit & state.occupied[color ^ 1] > 0;
-            destinations ^= bit;
-            al.push(Action::new(from as u16, to as u16, piece::COCKLE, capture));
-        }
+#[inline(always)]
+fn append_actions(
+    al: &mut ActionList,
+    piece: u8,
+    from: u16,
+    from_bit: u64,
+    stacked: u64,
+    mut destinations: u64,
+    other_color_occupied: u64,
+) {
+    while destinations > 0 {
+        let to = destinations.trailing_zeros();
+        let to_bit = 1 << to;
+        let is_capture = to_bit & other_color_occupied > 0;
+        let is_amber_capture = is_capture && (from_bit | to_bit) & stacked > 0;
+        destinations ^= to_bit;
+        al.push(Action::new(
+            from,
+            to as u16,
+            piece,
+            is_capture,
+            is_amber_capture,
+        ));
     }
 }
 
-pub fn append_gull_actions(state: &GameState, al: &mut ActionList, color: usize) {
-    let mut gulls = state.board[color][piece::GULL as usize];
-    while gulls > 0 {
-        let from = gulls.trailing_zeros();
-        gulls ^= 1 << from;
-        let mut destinations = GULL_PATTERN[from as usize] & !state.occupied[color];
-        while destinations > 0 {
-            let to = destinations.trailing_zeros();
-            let bit = 1 << to;
-            let capture = bit & state.occupied[color ^ 1] > 0;
-            destinations ^= bit;
-            al.push(Action::new(from as u16, to as u16, piece::GULL, capture));
-        }
+#[inline(always)]
+fn color_dependent_pieces(
+    state: &GameState,
+    al: &mut ActionList,
+    color: usize,
+    piece: u8,
+    pattern: &[u64; 128],
+) {
+    let other_color_occupied = state.occupied[color ^ 1];
+    let mut pieces = state.board[color][piece as usize];
+    while pieces > 0 {
+        let from = pieces.trailing_zeros();
+        let from_bit = 1 << from;
+        pieces ^= from_bit;
+        append_actions(
+            al,
+            piece,
+            from as u16,
+            from_bit,
+            state.stacked,
+            pattern[from as usize | color << 6] & !state.occupied[color],
+            other_color_occupied,
+        );
     }
 }
 
-pub fn append_starfish_actions(state: &GameState, al: &mut ActionList, color: usize) {
-    let mut starfish = state.board[color][piece::STARFISH as usize];
-    while starfish > 0 {
-        let from = starfish.trailing_zeros();
-        starfish ^= 1 << from;
-        let mut destinations =
-            STARFISH_PATTERN[from as usize | color << 6] & !state.occupied[color];
-        while destinations > 0 {
-            let to = destinations.trailing_zeros();
-            let bit = 1 << to;
-            let capture = bit & state.occupied[color ^ 1] > 0;
-            destinations ^= bit;
-            al.push(Action::new(
-                from as u16,
-                to as u16,
-                piece::STARFISH,
-                capture,
-            ));
-        }
-    }
-}
-
-pub fn append_seal_actions(state: &GameState, al: &mut ActionList, color: usize) {
-    let mut seals = state.board[color][piece::SEAL as usize];
-    while seals > 0 {
-        let from = seals.trailing_zeros();
-        seals ^= 1 << from;
-        let mut destinations = SEAL_PATTERN[from as usize] & !state.occupied[color];
-        while destinations > 0 {
-            let to = destinations.trailing_zeros();
-            let bit = 1 << to;
-            let capture = bit & state.occupied[color ^ 1] > 0;
-            destinations ^= bit;
-            al.push(Action::new(from as u16, to as u16, piece::SEAL, capture));
-        }
+#[inline(always)]
+fn color_independent_pieces(
+    state: &GameState,
+    al: &mut ActionList,
+    color: usize,
+    piece: u8,
+    pattern: &[u64; 64],
+) {
+    let other_color_occupied = state.occupied[color ^ 1];
+    let mut pieces = state.board[color][piece as usize];
+    while pieces > 0 {
+        let from = pieces.trailing_zeros();
+        let from_bit = 1 << from;
+        pieces ^= from_bit;
+        append_actions(
+            al,
+            piece,
+            from as u16,
+            from_bit,
+            state.stacked,
+            pattern[from as usize] & !state.occupied[color],
+            other_color_occupied,
+        );
     }
 }

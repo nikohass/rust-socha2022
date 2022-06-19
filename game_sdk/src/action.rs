@@ -1,3 +1,4 @@
+use super::bitboard::FINISH_LINES;
 use super::piece;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::{Index, IndexMut};
@@ -5,20 +6,27 @@ use std::ops::{Index, IndexMut};
 // 00000000 00111111 from
 // 00001111 11000000 to
 // 00110000 00000000 piece
-// 01000000 00000000 capture
+// 01000000 00000000 is_capture
+// 10000000 00000000 is_amber_capture
 
 const FROM_MASK: u16 = 0b111111;
 const TO_MASK: u16 = 0b111111 << 6;
 const PIECE_MASK: u16 = 0b11 << 12;
 const CAPTURE_MASK: u16 = 1 << 14;
+const AMBER_CAPTURE_MASK: u16 = 1 << 15;
 const ACTUAL_MOVE_MASK: u16 = FROM_MASK | TO_MASK | PIECE_MASK;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Action(u16);
 
 impl Action {
-    pub fn new(from: u16, to: u16, piece: u8, capture: bool) -> Self {
-        Self(from | to << 6 | (piece as u16) << 12 | (capture as u16) << 14)
+    pub fn new(from: u16, to: u16, piece: u8, is_capture: bool, is_amber_capture: bool) -> Self {
+        Self(
+            from | to << 6
+                | (piece as u16) << 12
+                | (is_capture as u16) << 14
+                | (is_amber_capture as u16) << 15,
+        )
     }
 
     pub fn from(self) -> u16 {
@@ -35,6 +43,14 @@ impl Action {
 
     pub fn is_capture(self) -> bool {
         (self.0 & CAPTURE_MASK) > 0
+    }
+
+    pub fn is_amber_capture(self) -> bool {
+        (self.0 & AMBER_CAPTURE_MASK) > 0
+    }
+
+    pub fn is_promotion(self, current_color: usize) -> bool {
+        self.piece() as u8 != piece::SEAL && (1 << self.to()) & FINISH_LINES[current_color] > 0
     }
 
     pub fn serialize(self) -> String {

@@ -12,34 +12,34 @@ pub const MIN_VALUE: i16 = -MAX_VALUE;
 pub const MAX_SEARCH_DEPTH: usize = 60;
 pub const STANDARD_VALUE: i16 = std::i16::MIN + 1;
 
-// TODO: History Heuristic
-
 pub struct Searcher {
-    pub root_ply: u8,
     pub stop: bool,
     pub nodes_searched: usize,
-    //pub als: ActionListStack,
     pub move_orderer: MoveOrderer,
     pub pv: ActionList,
     pub pv_table: ActionListStack,
     pub pv_hash_table: Vec<usize>,
-    pub killer_moves: [[Action; 2]; MAX_SEARCH_DEPTH],
+    pub history_heuristic: [[[u64; 64]; 64]; 2],
+    pub butterfly_heuristic: [[[u64; 64]; 64]; 2],
+    pub killer_heuristic: [[Action; 2]; MAX_SEARCH_DEPTH],
     pub start_time: Instant,
     pub time_limit: u128,
     pub tt: TranspositionTable,
+    // TODO: Evaluation cache
 }
 
 impl Default for Searcher {
     fn default() -> Self {
         Self {
-            root_ply: 0,
             stop: false,
             nodes_searched: 0,
             move_orderer: MoveOrderer::default(),
             pv: ActionList::default(),
             pv_table: ActionListStack::with_size(MAX_SEARCH_DEPTH),
             pv_hash_table: Vec::with_capacity(MAX_SEARCH_DEPTH),
-            killer_moves: [[Action::none(); 2]; MAX_SEARCH_DEPTH],
+            history_heuristic: [[[0; 64]; 64]; 2],
+            butterfly_heuristic: [[[1; 64]; 64]; 2],
+            killer_heuristic: [[Action::none(); 2]; MAX_SEARCH_DEPTH],
             start_time: Instant::now(),
             time_limit: 1980,
             tt: TranspositionTable::default(),
@@ -57,39 +57,56 @@ impl Player for Searcher {
     }
 
     fn reset(&mut self) {
-        self.root_ply = 0;
         self.stop = false;
         self.nodes_searched = 0;
+        self.move_orderer = MoveOrderer::default();
         self.pv = ActionList::default();
         self.pv_table = ActionListStack::with_size(MAX_SEARCH_DEPTH);
         self.pv_hash_table = Vec::with_capacity(MAX_SEARCH_DEPTH);
+        self.history_heuristic = [[[0; 64]; 64]; 2];
+        self.butterfly_heuristic = [[[1; 64]; 64]; 2];
+        self.killer_heuristic = [[Action::none(); 2]; MAX_SEARCH_DEPTH];
         self.tt = TranspositionTable::default();
-        self.killer_moves = [[Action::none(); 2]; MAX_SEARCH_DEPTH];
-        self.move_orderer = MoveOrderer::default();
     }
 }
 
 impl Searcher {
     pub fn search(&mut self, state: &GameState) -> Action {
         println!("Searching action using PV-Search for {}", state.to_fen());
-        println!("Depth  Value     Nodes PV");
+        println!("Depth  Value     Nodes     Elapsed   Nodes/s PV");
         let mut state = state.clone();
         self.start_time = Instant::now();
         self.nodes_searched = 0;
-        self.root_ply = state.ply;
         self.stop = false;
         self.pv.clear();
         self.pv_hash_table.clear();
+        for i in 0..2 {
+            for j in 0..64 {
+                for k in 0..64 {
+                    self.history_heuristic[i][j][k] /= 8;
+                    self.butterfly_heuristic[i][j][k] =
+                        (self.butterfly_heuristic[i][j][k] / 8).max(1);
+                }
+            }
+        }
         let mut best_action = Action::none();
         for depth in 1..=MAX_SEARCH_DEPTH {
             let current_value = self.pv_search(&mut state, 0, depth, MIN_VALUE, MAX_VALUE);
-            print!("{:5} {:6} {:9} ", depth, current_value, self.nodes_searched);
+            let elapsed = Instant::now().duration_since(self.start_time).as_micros();
+            let nps = self.nodes_searched as f64 / (elapsed as f64 / 1_000_000.0);
+            print!(
+                "{:5} {:6} {:9} {:9}μs {:9.0} ",
+                depth, current_value, self.nodes_searched, elapsed, nps
+            );
             if self.stop {
                 println!("(canceled)");
                 break;
             }
             let mut toy_state = state.clone();
             self.pv = self.pv_table[0].clone();
+            if self.pv.size != 0 {
+                best_action = self.pv[0];
+            }
             println!("{}", self.pv);
             if self.pv.size != depth {
                 println!("Reached the end of the search tree.");
@@ -115,7 +132,11 @@ impl Searcher {
                 self.pv_hash_table.push(toy_state.hash as usize);
                 gamerules::do_action(&mut toy_state, self.pv[i]);
             }
+        }
+        if best_action == Action::none() {
+            gamerules::get_legal_actions(&state, &mut self.pv);
             best_action = self.pv[0];
+            println!("No move found.");
         }
         best_action
     }
@@ -136,7 +157,8 @@ impl Searcher {
         let original_alpha = alpha;
         let hash = state.hash as usize;
         let mut best_value = STANDARD_VALUE;
-        let color_sign = match state.ply % 2 {
+        let color = (state.ply % 2) as usize;
+        let color_sign = match color {
             0 => 1,
             _ => -1,
         };
@@ -180,7 +202,9 @@ impl Searcher {
             depth,
             pv_action,
             tt_action,
-            &self.killer_moves[depth],
+            &self.killer_heuristic[depth],
+            &self.history_heuristic[color],
+            &self.butterfly_heuristic[color],
         );
         if self.move_orderer.als[depth].size == 0 {
             return MATE_VALUE;
@@ -218,13 +242,18 @@ impl Searcher {
                 if value > alpha {
                     alpha = value;
                     if alpha >= beta {
-                        if action != self.killer_moves[depth][0]
-                            && action != self.killer_moves[depth][1]
+                        self.history_heuristic[color][action.from() as usize]
+                            [action.to() as usize] += (depth_left as u64) * (depth_left as u64);
+                        if action != self.killer_heuristic[depth][0]
+                            && action != self.killer_heuristic[depth][1]
                         {
-                            self.killer_moves[depth][0] = self.killer_moves[depth][1];
-                            self.killer_moves[depth][1] = action;
+                            self.killer_heuristic[depth][0] = self.killer_heuristic[depth][1];
+                            self.killer_heuristic[depth][1] = action;
                         }
                         break;
+                    } else {
+                        self.butterfly_heuristic[color][action.from() as usize]
+                            [action.to() as usize] += depth_left as u64;
                     }
                 }
             }

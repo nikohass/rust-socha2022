@@ -7,6 +7,12 @@ use std::ops::{Index, IndexMut};
 // 00110000 00000000 piece
 // 01000000 00000000 capture
 
+const FROM_MASK: u16 = 0b111111;
+const TO_MASK: u16 = 0b111111 << 6;
+const PIECE_MASK: u16 = 0b11 << 12;
+const CAPTURE_MASK: u16 = 1 << 14;
+const ACTUAL_MOVE_MASK: u16 = FROM_MASK | TO_MASK | PIECE_MASK;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Action(u16);
 
@@ -16,23 +22,23 @@ impl Action {
     }
 
     pub fn from(self) -> u16 {
-        self.0 & 0b111111
+        self.0 & FROM_MASK
     }
 
     pub fn to(self) -> u16 {
-        self.0 >> 6 & 0b111111
+        (self.0 & TO_MASK) >> 6
     }
 
     pub fn piece(self) -> u16 {
-        self.0 >> 12 & 0b11
+        (self.0 & PIECE_MASK) >> 12
     }
 
     pub fn is_capture(self) -> bool {
-        self.0 >> 14 & 0b1 > 0
+        (self.0 & CAPTURE_MASK) > 0
     }
 
     pub fn serialize(self) -> String {
-        (self.0 & 0b11111111111111).to_string() // TODO: remove this
+        (self.0 & ACTUAL_MOVE_MASK).to_string()
     }
 
     pub fn deserialize(string: String) -> Self {
@@ -58,8 +64,13 @@ impl Action {
 
 impl Display for Action {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let p = piece::to_string(piece::PIECES[self.piece() as usize]);
-        write!(f, "{} from {} to {}", p, self.from(), self.to(),)
+        write!(
+            f,
+            "{} {} to {}",
+            piece::to_string(piece::PIECES[self.piece() as usize]),
+            self.from(),
+            self.to(),
+        )
     }
 }
 
@@ -110,7 +121,7 @@ impl Default for UndoInfo {
     }
 }
 
-pub const MAX_ACTIONS: usize = 300;
+pub const MAX_ACTIONS: usize = 200;
 
 #[derive(Clone)]
 pub struct ActionList {
@@ -130,6 +141,7 @@ impl ActionList {
         self.size = 0;
     }
 
+    #[inline(always)]
     pub fn swap(&mut self, a: usize, b: usize) {
         self.actions.swap(a, b);
     }

@@ -145,7 +145,7 @@ pub fn run_test(
 fn main() {
     let path_one = String::from("target/release/client.exe");
     let path_two = String::from("clients/cb.exe");
-    let threads: usize = 6;
+    let threads: usize = 8;
 
     let test_result = Arc::new(Mutex::new(TestResult::default()));
     let mut handles: Vec<JoinHandle<()>> = Vec::with_capacity(8);

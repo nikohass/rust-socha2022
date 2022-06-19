@@ -5,6 +5,11 @@ use game_sdk::action::MAX_ACTIONS;
 use game_sdk::gamerules;
 use game_sdk::gamestate::GameState;
 
+pub const PV_ACTION_VALUE: u64 = std::u64::MAX;
+pub const TT_ACTION_VALUE: u64 = std::u64::MAX - 1;
+pub const KILLER_MOVE_VALUE: u64 = std::u64::MAX - 2;
+pub const CAPTURE_VALUE: u64 = 1_000;
+
 pub struct MoveOrderer {
     pub als: ActionListStack,
     values: [[u64; MAX_ACTIONS]; MAX_SEARCH_DEPTH],
@@ -20,27 +25,37 @@ impl Default for MoveOrderer {
 }
 
 impl MoveOrderer {
+    #[allow(clippy::too_many_arguments)]
     pub fn generate_moves(
         &mut self,
         state: &GameState,
         depth: usize,
         pv_action: Action,
         tt_action: Action,
-        killer_moves: &[Action; 2],
+        killer_heuristic: &[Action; 2],
+        history_heuristic: &[[u64; 64]; 64],
+        butterfly_heuristic: &[[u64; 64]; 64],
     ) {
         gamerules::get_legal_actions(state, &mut self.als[depth]);
         for i in 0..self.als[depth].size {
             let action = self.als[depth][i];
-            let mut value = if action.is_capture() { 1 } else { 0 };
-            if action == pv_action {
-                value += 100;
-            }
-            if action == tt_action {
-                value += 10;
-            }
-            if action == killer_moves[0] || action == killer_moves[1] {
-                value += 1;
-            }
+            let value = if action == pv_action {
+                PV_ACTION_VALUE
+            } else if action == tt_action {
+                TT_ACTION_VALUE
+            } else if action == killer_heuristic[0] || action == killer_heuristic[1] {
+                KILLER_MOVE_VALUE
+            } else {
+                let history_value = history_heuristic[action.to() as usize][action.from() as usize];
+                let butterfly_value =
+                    butterfly_heuristic[action.to() as usize][action.from() as usize];
+                let capture_value = if action.is_capture() {
+                    CAPTURE_VALUE
+                } else {
+                    0
+                };
+                capture_value + (history_value as f32 / butterfly_value as f32) as u64
+            };
             self.values[depth][i] = value;
         }
     }

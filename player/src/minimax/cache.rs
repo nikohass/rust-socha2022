@@ -23,7 +23,7 @@ impl Default for TranspositionTableEntry {
     fn default() -> Self {
         Self {
             value: 0,
-            action: Action::none(),
+            action: Action::NONE,
             depth: std::u8::MAX,
             hash: 0,
             alpha: false,

@@ -40,8 +40,8 @@ impl Default for Searcher {
             pv_hash_table: Vec::with_capacity(MAX_SEARCH_DEPTH),
             history_heuristic: [[[0; 64]; 64]; 2],
             butterfly_heuristic: [[[1; 64]; 64]; 2],
-            killer_heuristic: [[Action::none(); 2]; MAX_SEARCH_DEPTH],
-            //counter_move_heuristic: [[Action::none(); 64]; 64],
+            killer_heuristic: [[Action::NONE; 2]; MAX_SEARCH_DEPTH],
+            //counter_move_heuristic: [[Action::NONE; 64]; 64],
             start_time: Instant::now(),
             time_limit: 1970,
             tt: TranspositionTable::default(),
@@ -68,8 +68,8 @@ impl Player for Searcher {
         self.pv_hash_table = Vec::with_capacity(MAX_SEARCH_DEPTH);
         self.history_heuristic = [[[0; 64]; 64]; 2];
         self.butterfly_heuristic = [[[1; 64]; 64]; 2];
-        self.killer_heuristic = [[Action::none(); 2]; MAX_SEARCH_DEPTH];
-        //self.counter_move_heuristic = [[Action::none(); 64]; 64];
+        self.killer_heuristic = [[Action::NONE; 2]; MAX_SEARCH_DEPTH];
+        //self.counter_move_heuristic = [[Action::NONE; 64]; 64];
         self.tt = TranspositionTable::default();
         //self.evaluation_cache = EvaluationCache::default();
     }
@@ -94,7 +94,7 @@ impl Searcher {
                 }
             }
         }
-        let mut best_action = Action::none();
+        let mut best_action = Action::NONE;
         for depth in 1..=MAX_SEARCH_DEPTH {
             let current_value = self.pv_search(&mut state, 0, depth, MIN_VALUE, MAX_VALUE);
             let elapsed = Instant::now().duration_since(self.start_time).as_micros();
@@ -138,7 +138,7 @@ impl Searcher {
                 gamerules::do_action(&mut toy_state, self.pv[i]);
             }
         }
-        if best_action == Action::none() {
+        if best_action == Action::NONE {
             gamerules::get_legal_actions(&state, &mut self.pv);
             best_action = self.pv[0];
             println!("No move found.");
@@ -215,14 +215,14 @@ impl Searcher {
         let pv_action = if self.pv_table[depth].size > 0 && hash == self.pv_hash_table[depth] {
             self.pv[depth]
         } else {
-            Action::none()
+            Action::NONE
         };
 
         let tt_action = if let Some(entry) = self.tt.lookup(hash) {
             // TODO:
             entry.action
         } else {
-            Action::none()
+            Action::NONE
         };
 
         self.move_orderer.generate_moves(
@@ -241,7 +241,7 @@ impl Searcher {
         let mut is_first = true;
         loop {
             let action = self.move_orderer.next(depth);
-            if action == Action::none() {
+            if action == Action::NONE {
                 break;
             }
             gamerules::do_action(state, action);

@@ -67,7 +67,7 @@ impl MoveOrderer {
 
     pub fn next(&mut self, depth: usize) -> Action {
         if self.als[depth].size == 0 {
-            return Action::none();
+            return Action::NONE;
         }
         let mut best_index = 0;
         let mut best_value = 0;

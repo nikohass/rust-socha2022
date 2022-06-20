@@ -11,7 +11,6 @@ struct EvaluationParameters {
     stacked_piece_value: f32,
     capture_value: f32,
     reachable_fields_value: [f32; 4],
-    //seal_proximity_value: f32,
 }
 const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
     amber_value: 100.0,
@@ -19,7 +18,6 @@ const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
     stacked_piece_value: 20.0,
     capture_value: 10.0,
     reachable_fields_value: [1.0, 1.0, 1.0, 1.0],
-    //seal_proximity_value: 70.0,
 };
 
 struct ReachableFields {
@@ -117,7 +115,6 @@ impl ReachableFields {
 struct Captures {
     stack_captures: u64,
     captures_stack: u64,
-    //stack_captures_stack: u64,
 }
 
 impl Captures {
@@ -224,17 +221,5 @@ fn evaluate_color(
         + DEFAULT_PARAMETERS.reachable_fields_value[SEAL as usize]
             * (my_reachable_fields.seal.count_ones() as f32);
     // TODO: Piece values
-    /*let seal_proximity_value = if (state.board[color][SEAL as usize]
-        & state.board[color][SEAL as usize] << 1)
-        | (state.board[color][SEAL as usize] & state.board[color][SEAL as usize] << 8)
-        | (state.board[color][SEAL as usize] & state.board[color][SEAL as usize] << 7)
-        | (state.board[color][SEAL as usize] & state.board[color][SEAL as usize] << 9)
-        > 0
-    {
-        DEFAULT_PARAMETERS.seal_proximity_value
-    } else {
-        0.0
-    };*/
     amber_value + stacked_piece_value + capture_value + reachable_fields_value
-    //+ seal_proximity_value
 }

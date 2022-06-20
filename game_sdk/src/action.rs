@@ -20,6 +20,8 @@ const ACTUAL_MOVE_MASK: u16 = FROM_MASK | TO_MASK | PIECE_MASK;
 pub struct Action(u16);
 
 impl Action {
+    pub const NONE: Self = Self(0);
+
     pub fn new(from: u16, to: u16, piece: u8, is_capture: bool, is_amber_capture: bool) -> Self {
         Self(
             from | to << 6
@@ -29,26 +31,32 @@ impl Action {
         )
     }
 
+    #[inline(always)]
     pub fn from(self) -> u16 {
         self.0 & FROM_MASK
     }
 
+    #[inline(always)]
     pub fn to(self) -> u16 {
         (self.0 & TO_MASK) >> 6
     }
 
+    #[inline(always)]
     pub fn piece(self) -> u16 {
         (self.0 & PIECE_MASK) >> 12
     }
 
+    #[inline(always)]
     pub fn is_capture(self) -> bool {
         (self.0 & CAPTURE_MASK) > 0
     }
 
+    #[inline(always)]
     pub fn is_amber_capture(self) -> bool {
         (self.0 & AMBER_CAPTURE_MASK) > 0
     }
 
+    #[inline(always)]
     pub fn is_promotion(self, current_color: usize) -> bool {
         self.piece() as u8 != piece::SEAL && (1 << self.to()) & FINISH_LINES[current_color] > 0
     }
@@ -71,10 +79,6 @@ impl Action {
             from_x, from_y, to_x, to_y
         );
         format!("  <data class=\"move\">\n    {}  </data>", xml_move)
-    }
-
-    pub fn none() -> Self {
-        Self(0)
     }
 }
 
@@ -102,18 +106,22 @@ pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
 pub struct UndoInfo(u8, u64);
 
 impl UndoInfo {
+    #[inline(always)]
     pub fn set_hash(&mut self, hash: u64) {
         self.1 = hash;
     }
 
+    #[inline(always)]
     pub fn get_hash(&self) -> u64 {
         self.1
     }
 
+    #[inline(always)]
     pub fn set_capture(&mut self, piece: u8, capture_info: u8) {
         self.0 |= 0b1 | (piece as u8) << 1 | capture_info << 3;
     }
 
+    #[inline(always)]
     pub fn get_capture(self) -> Option<(u8, u8)> {
         if self.0 & 0b1 > 0 {
             Some(((self.0 >> 1) & 0b11, (self.0 >> 3) & 0b11))

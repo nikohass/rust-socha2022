@@ -17,7 +17,7 @@ impl GreedyPlayer {
             BLUE => 1,
             _ => panic!(),
         };
-        let mut best_action = Action::none();
+        let mut best_action = Action::NONE;
         let mut best_value = std::i16::MIN;
         for i in 0..self.al.size {
             let action = self.al[i];

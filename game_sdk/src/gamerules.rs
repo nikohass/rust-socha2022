@@ -14,7 +14,7 @@ pub const COCKLE_PATTERN: [u64; 128] = [512, 1024, 2048, 4096, 8192, 16384, 3276
 pub const GULL_PATTERN: [u64; 64] = [258, 517, 1034, 2068, 4136, 8272, 16544, 32832, 66049, 132354, 264708, 529416, 1058832, 2117664, 4235328, 8405120, 16908544, 33882624, 67765248, 135530496, 271060992, 542121984, 1084243968, 2151710720, 4328587264, 8673951744, 17347903488, 34695806976, 69391613952, 138783227904, 277566455808, 550837944320, 1108118339584, 2220531646464, 4441063292928, 8882126585856, 17764253171712, 35528506343424, 71057012686848, 141014513745920, 283678294933504, 568456101494784, 1136912202989568, 2273824405979136, 4547648811958272, 9095297623916544, 18190595247833088, 36099715518955520, 72621643502977024, 145524761982664704, 291049523965329408, 582099047930658816, 1164198095861317632, 2328396191722635264, 4656792383445270528, 9241527172852613120, 144396663052566528, 360850920143060992, 721701840286121984, 1443403680572243968, 2886807361144487936, 5773614722288975872, 11547229444577951744, 4647714815446351872];
 
 pub fn is_game_over(state: &GameState) -> bool {
-    state.ply >= 59 || ((state.ambers[0] > 1 || state.ambers[1] > 1) && state.ply & 0b1 == 0)
+    state.ply >= 59 || ((state.ambers[0] > 1 || state.ambers[1] > 1) && state.ply % 2 == 0)
 }
 
 pub fn game_result(state: &GameState) -> i16 {
@@ -55,15 +55,15 @@ pub fn do_action(state: &mut GameState, action: Action) {
             state.stacked &= !changed_fields;
             state.occupied[color] &= !changed_fields;
             if state.board[color][piece] & from_bit > 0 {
-                state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
+                state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
             }
             state.board[color][piece] ^= from_bit;
         } else {
             state.stacked |= to_bit;
             state.occupied[color] ^= changed_fields;
             state.board[color][piece] ^= changed_fields;
-            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.from() as usize];
-            state.hash ^= ZOBRIST_KEYS[color][action.piece() as usize][action.to() as usize];
+            state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
+            state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
         }
         let mask = !to_bit;
         state.occupied[other_color] &= mask;

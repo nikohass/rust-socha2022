@@ -33,16 +33,6 @@ impl GameState {
         }
     }
 
-    /*
-    pub fn compare(&self, other: &GameState) -> bool {
-        self.ply == other.ply
-            && self.board[RED] == other.board[RED]
-            && self.board[BLUE] == other.board[BLUE]
-            && self.stacked == other.stacked
-            && self.ambers == other.ambers
-            && self.occupied == other.occupied
-    }*/
-
     pub fn random() -> Self {
         let mut rng = SmallRng::from_entropy();
         let mut state = GameState::empty();
@@ -83,7 +73,7 @@ impl GameState {
     }
 
     pub fn get_current_color(&self) -> usize {
-        (self.ply & 0b1) as usize
+        (self.ply % 2) as usize
     }
 
     pub fn from_fen(fen: &str) -> Self {

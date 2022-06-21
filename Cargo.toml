@@ -3,7 +3,6 @@ members = [
     "client",
 	"game_sdk",
 	"player",
-	"playground",
     "testserver",
 ]
 

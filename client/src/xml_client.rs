@@ -80,7 +80,7 @@ impl XmlClient {
                             return;
                         }
                         s => {
-                            println!("{} {}", s.to_string(), node.data.to_string());
+                            println!("{} {}", s, node.data);
                         }
                     }
                 }

@@ -2,6 +2,7 @@ use super::action::{ActionList, ActionListStack};
 use super::gamerules;
 use super::gamestate::GameState;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use std::time::Instant;
 /*
 pub fn random_gamestate(ply: u8) -> GameState {
     let mut rng = SmallRng::from_entropy();
@@ -60,6 +61,14 @@ pub fn test_hashing() {
             gamerules::do_action(&mut state, action);
             let hash = state.hash;
             state.recalculate_hash();
+            if hash != state.hash {
+                println!("{}", action);
+                gamerules::undo_action(&mut state, action);
+                println!("{}", state);
+                gamerules::do_action(&mut state, action);
+                println!("{}", state);
+                panic!();
+            }
             assert_eq!(state.hash, hash);
         }
     }
@@ -69,11 +78,14 @@ pub fn test_hashing() {
 pub fn test_move_generation() {
     let mut als = ActionListStack::with_size(10);
     let mut state = GameState::from_fen("29 281474976710657 1099511628032 8589935104 0 35184372088832 0 549755813888 2147483776 0 2");
-    let result = perft(&mut state, 6, &mut als);
+    let start_time = Instant::now();
+    let result = count_moves(&mut state, 6, &mut als);
+    let elapsed = start_time.elapsed().as_micros() as f64;
+    println!("nps: {}", result as f64 / elapsed * 1_000_000.);
     assert_eq!(result, 4961202);
 }
 
-fn perft(state: &mut GameState, depth: usize, als: &mut ActionListStack) -> usize {
+fn count_moves(state: &mut GameState, depth: usize, als: &mut ActionListStack) -> usize {
     if depth == 0 {
         return 1;
     }
@@ -82,7 +94,7 @@ fn perft(state: &mut GameState, depth: usize, als: &mut ActionListStack) -> usiz
     for i in 0..als[depth].size {
         let action = als[depth][i];
         gamerules::do_action(state, action);
-        children += perft(state, depth - 1, als);
+        children += count_moves(state, depth - 1, als);
         gamerules::undo_action(state, action);
     }
     children

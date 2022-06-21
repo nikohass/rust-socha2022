@@ -8,22 +8,12 @@ use std::process::{ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+#[derive(Default)]
 pub struct TestResult {
     games_played: usize,
     one: usize,
     draw: usize,
     two: usize,
-}
-
-impl Default for TestResult {
-    fn default() -> Self {
-        Self {
-            games_played: 0,
-            one: 0,
-            draw: 0,
-            two: 0,
-        }
-    }
 }
 
 impl Display for TestResult {

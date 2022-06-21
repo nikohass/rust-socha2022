@@ -102,7 +102,7 @@ impl Display for Action {
 pub const CAPTURED_PIECE_WAS_STACKED: u8 = 0b1;
 pub const MOVED_PIECE_WAS_STACKED: u8 = 0b10;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct UndoInfo(u8, u64);
 
 impl UndoInfo {
@@ -136,12 +136,6 @@ impl UndoInfo {
 
     pub fn get_finish_line_info(self) -> u8 {
         self.0 >> 3 & 0b11
-    }
-}
-
-impl Default for UndoInfo {
-    fn default() -> Self {
-        Self(0, 0)
     }
 }
 

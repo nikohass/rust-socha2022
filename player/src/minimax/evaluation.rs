@@ -20,6 +20,7 @@ const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
     reachable_fields_value: [1.0, 1.0, 1.0, 1.0],
 };
 
+#[derive(Default)]
 struct ReachableFields {
     //pieces: [u64; 4],
     //stacks: [u64; 4],
@@ -33,23 +34,6 @@ struct ReachableFields {
     seal_stack: u64,
     all: u64,
     all_stacked: u64,
-}
-
-impl Default for ReachableFields {
-    fn default() -> Self {
-        ReachableFields {
-            cockle: 0,
-            cockle_stack: 0,
-            gull: 0,
-            gull_stack: 0,
-            starfish: 0,
-            starfish_stack: 0,
-            seal: 0,
-            seal_stack: 0,
-            all: 0,
-            all_stacked: 0,
-        }
-    }
 }
 
 impl ReachableFields {

@@ -68,6 +68,12 @@ impl GameState {
                     hash ^= ZOBRIST_KEYS[color as usize][piece as usize][position as usize];
                 }
             }
+            let mut stacked = self.stacked & self.occupied[color as usize];
+            while stacked > 0 {
+                let position = stacked.trailing_zeros();
+                stacked ^= 1 << position;
+                hash ^= ZOBRIST_KEYS[color as usize][4][position as usize];
+            }
         }
         self.hash = hash;
     }

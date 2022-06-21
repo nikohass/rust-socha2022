@@ -21,9 +21,11 @@ pub fn game_result(state: &GameState) -> i16 {
     // only works when is_game_over returns true
     #[allow(clippy::comparison_chain)]
     if state.ambers[0] == state.ambers[1] {
+        let blue_light_figures = state.occupied[BLUE] & !state.board[BLUE][piece::SEAL as usize];
+        let red_light_figures = state.occupied[RED] & !state.board[RED][piece::SEAL as usize];
         for i in 0..8 {
-            let red = (FINISH_LINES[RED] >> i & state.occupied[RED]).count_ones();
-            let blue = (FINISH_LINES[BLUE] << i & state.occupied[BLUE]).count_ones();
+            let red = (FINISH_LINES[RED] >> i & red_light_figures).count_ones();
+            let blue = (FINISH_LINES[BLUE] << i & blue_light_figures).count_ones();
             if red > blue {
                 return 1;
             } else if blue > red {
@@ -49,24 +51,37 @@ pub fn do_action(state: &mut GameState, action: Action) {
     let piece = action.piece() as usize;
     let is_piece_stacked = state.stacked & from_bit > 0;
     if to_bit & state.occupied[other_color] > 0 {
+        // Move is a capture
         let changed_fields_that_are_stacked = changed_fields & state.stacked;
         if changed_fields_that_are_stacked > 0 {
+            // The capturing or the captured piece is a stack
             state.ambers[color] += 1;
-            state.stacked &= !changed_fields;
-            state.occupied[color] &= !changed_fields;
-            if state.board[color][piece] & from_bit > 0 {
-                state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
+            // Update stacked
+            if to_bit & state.stacked > 0 {
+                state.hash ^= ZOBRIST_KEYS[other_color][4][action.to() as usize];
             }
+            if from_bit & state.stacked > 0 {
+                state.hash ^= ZOBRIST_KEYS[color][4][action.from() as usize];
+            }
+            state.stacked &= !changed_fields;
+            // Update occupied
+            state.occupied[color] &= !changed_fields;
+            // Update board
             state.board[color][piece] ^= from_bit;
+            state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
         } else {
+            // Update stacked
             state.stacked |= to_bit;
+            state.hash ^= ZOBRIST_KEYS[color][4][action.to() as usize];
+            // Update occupied
             state.occupied[color] ^= changed_fields;
+            // Update piece position on the board
             state.board[color][piece] ^= changed_fields;
             state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
             state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
         }
         let mask = !to_bit;
-        state.occupied[other_color] &= mask;
+        state.occupied[other_color] &= mask; // Remove the opponents piece from the occupancy bitboard
         let mut capture_info: u8 = 0;
         if changed_fields_that_are_stacked & to_bit > 0 {
             capture_info |= CAPTURED_PIECE_WAS_STACKED;
@@ -74,36 +89,46 @@ pub fn do_action(state: &mut GameState, action: Action) {
         if changed_fields_that_are_stacked & from_bit > 0 {
             capture_info |= MOVED_PIECE_WAS_STACKED;
         }
+        // Remove the opponents piece
         for piece in 0..4 {
             if state.board[other_color][piece] & to_bit > 0 {
-                if state.board[other_color][piece] & to_bit > 0 {
-                    state.hash ^= ZOBRIST_KEYS[other_color][piece][action.to() as usize];
-                }
-                state.board[other_color][piece] &= mask;
+                state.hash ^= ZOBRIST_KEYS[other_color][piece][action.to() as usize];
+                state.board[other_color][piece] &= mask; // Remove the opponents piece
                 undo_info.set_capture(piece as u8, capture_info);
                 break;
             }
         }
     } else {
+        // Move is not a capture
+        // Update occupued
         state.occupied[color] ^= changed_fields;
+        // Update board
         state.board[color][piece] ^= changed_fields;
         state.hash ^= ZOBRIST_KEYS[color][piece][action.from() as usize];
         state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
+        // Update stacked
         if state.stacked & from_bit > 0 {
-            state.stacked ^= from_bit | to_bit;
+            // If the moved piece is stacked, also move the stack
+            state.stacked ^= changed_fields;
+            state.hash ^= ZOBRIST_KEYS[color][4][action.to() as usize]
+                ^ ZOBRIST_KEYS[color][4][action.from() as usize];
         }
     }
+    // Check whether a piece reached the finish line
     if piece as usize != piece::SEAL as usize && to_bit & FINISH_LINES[color] > 0 {
         if is_piece_stacked {
             undo_info.set_finish_line_info(MOVED_PIECE_WAS_STACKED);
         }
         let mask = !to_bit;
-        if state.board[color][piece] & to_bit > 0 {
+        if to_bit & state.occupied[color] > 0 {
             state.hash ^= ZOBRIST_KEYS[color][piece][action.to() as usize];
         }
         state.board[color][piece] &= mask;
         state.occupied[color] &= mask;
         state.ambers[color] += 1;
+        if state.stacked & to_bit > 0 {
+            state.hash ^= ZOBRIST_KEYS[color][4][action.to() as usize];
+        }
         state.stacked &= mask;
     }
     state.undo[state.ply as usize] = undo_info;

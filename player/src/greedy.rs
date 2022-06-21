@@ -4,6 +4,7 @@ use game_sdk::gamerules;
 use game_sdk::gamestate::{GameState, BLUE, RED};
 use game_sdk::player::Player;
 
+#[derive(Default)]
 pub struct GreedyPlayer {
     al: ActionList,
 }
@@ -36,13 +37,5 @@ impl GreedyPlayer {
 impl Player for GreedyPlayer {
     fn on_move_request(&mut self, state: &GameState) -> Action {
         self.get_action(state)
-    }
-}
-
-impl Default for GreedyPlayer {
-    fn default() -> Self {
-        Self {
-            al: ActionList::default(),
-        }
     }
 }

@@ -168,7 +168,7 @@ impl Searcher {
         depth: usize,
         depth_left: usize,
         mut alpha: i16,
-        mut beta: i16,
+        beta: i16,
     ) -> i16 {
         self.pv_table[depth].clear();
         self.nodes_searched += 1;
@@ -189,16 +189,7 @@ impl Searcher {
 
         if is_game_over {
             let result = gamerules::game_result(state);
-            return (MATE_VALUE + 60 - depth as i16) * color_sign * result;
-        }
-
-        // Mate distance pruning
-        {
-            alpha = alpha.max(-(MATE_VALUE + 60 - depth as i16 - 1));
-            beta = beta.min(MATE_VALUE + 60 - depth as i16 - 1);
-            if alpha >= beta {
-                return beta;
-            }
+            return MATE_VALUE * color_sign * result;
         }
 
         if depth_left == 0 || self.stop {

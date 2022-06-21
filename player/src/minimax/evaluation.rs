@@ -12,11 +12,12 @@ struct EvaluationParameters {
     capture_value: f32,
     reachable_fields_value: [f32; 4],
 }
+// TODO: Tune parameters
 const DEFAULT_PARAMETERS: EvaluationParameters = EvaluationParameters {
     amber_value: 100.0,
     turn_advantage: 3.0,
     stacked_piece_value: 20.0,
-    capture_value: 10.0,
+    capture_value: 20.0,
     reachable_fields_value: [1.0, 1.0, 1.0, 1.0],
 };
 
@@ -205,5 +206,6 @@ fn evaluate_color(
         + DEFAULT_PARAMETERS.reachable_fields_value[SEAL as usize]
             * (my_reachable_fields.seal.count_ones() as f32);
     // TODO: Piece values
+    // TODO: More evaluation features
     amber_value + stacked_piece_value + capture_value + reachable_fields_value
 }

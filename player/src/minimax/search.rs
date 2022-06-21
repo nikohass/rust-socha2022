@@ -189,7 +189,7 @@ impl Searcher {
 
         if is_game_over {
             let result = gamerules::game_result(state);
-            return MATE_VALUE * color_sign * result;
+            return (MATE_VALUE + MAX_SEARCH_DEPTH as i16 - depth as i16) * color_sign * result;
         }
 
         if depth_left == 0 || self.stop {
